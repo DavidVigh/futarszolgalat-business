@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
+use RuntimeException;
+
+class PythonApiClient
+{
+    public function call(string $operation, array $payload): array
+    {
+        $baseUrl = config('python-api.base_url');
+        $endpoint = config("python-api.endpoints.$operation");
+
+        if (! is_string($baseUrl) || $baseUrl === '' || ! is_string($endpoint) || $endpoint === '') {
+            throw new RuntimeException('A Python API nincs beallitva.');
+        }
+
+        $response = $this->request()->post($endpoint, $payload);
+
+        if ($response->failed()) {
+            throw new RuntimeException('A Python API adatrogzitese sikertelen.', $response->status());
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? ($json['data'] ?? $json) : [];
+    }
+
+    private function request(): PendingRequest
+    {
+        $request = Http::baseUrl(rtrim((string) config('python-api.base_url'), '/'))
+            ->acceptJson()
+            ->asJson()
+            ->timeout((int) config('python-api.timeout', 10));
+
+        $token = config('python-api.token');
+
+        return is_string($token) && $token !== ''
+            ? $request->withToken($token)
+            : $request;
+    }
+}

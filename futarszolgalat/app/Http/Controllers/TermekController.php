@@ -2,44 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Termek;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class TermekController extends Controller
 {
-    
- public function get()
+    public function index(Request $request): JsonResponse
     {
-        $termekek = Termek::all();
-        return view('termekek.index', ['termekek' => $termekek]);
+        $query = Termek::query();
+        $query->when($request->filled('tipus'), fn ($q) => $q->whereIn('tipus', (array) $request->input('tipus')));
+        $query->when($request->filled('fogas'), fn ($q) => $q->whereIn('fogas', (array) $request->input('fogas')));
+        $query->when($request->filled('kereses'), fn ($q) => $q->where(fn ($q) => $q->where('nev', 'like', '%'.$request->input('kereses').'%')->orWhere('leiras', 'like', '%'.$request->input('kereses').'%')));
+
+        return response()->json($query->orderBy('nev')->paginate());
     }
-
- public function show(int $id)
- {
-    $termek = Termek::findOrFail($id);
-    return view('termekek.show', ['termek' => $termek]);
- }
-
- public function post(Request $request){
-    $termek = new Termek();
-    $termek->nev = $request->nev;
-    $termek->ar = $request->ar;
-    $termek->save();
-    return redirect()->route('termekek.index');
- }
-
- public function put(Request $request, int $id){
-    $termek = Termek::find($id);
-    $termek->nev = $request->nev;
-    $termek->ar = $request->ar;
-    $termek->save();
-    return redirect()->route('termekek.index');
- }
- 
- public function delete(int $id){
-    $termek = Termek::find($id);
-    $termek->delete();
-    return redirect()->route('termekek.index');
- }
-
 }

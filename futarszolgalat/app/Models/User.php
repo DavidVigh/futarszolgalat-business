@@ -12,6 +12,8 @@ class User extends Authenticatable
 
     protected $table = 'felhasznalo';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'nev',
         'cim',

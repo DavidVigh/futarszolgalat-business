@@ -10,6 +10,8 @@ class Futar extends Model
 
     public $timestamps = false;
 
+    protected $primaryKey = 'id';
+
     protected $fillable = ['nev', 'telszam', 'jarmu', 'ember', 'allapot', 'hatosugar_km'];
 
     protected function casts(): array

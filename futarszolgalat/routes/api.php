@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\FelhasznaloController as AdminFelhasznaloControll
 use App\Http\Controllers\Admin\FutarController as AdminFutarController;
 use App\Http\Controllers\Admin\RendelesController as AdminRendelesController;
 use App\Http\Controllers\Admin\TermekController as AdminTermekController;
+use App\Http\Controllers\AllergenController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FutarController;
 use App\Http\Controllers\TermekController;
@@ -13,6 +14,7 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/futar-login', [AuthController::class, 'futarLogin']);
 Route::get('/termekek', [TermekController::class, 'index']);
+Route::get('/allergenek', [AllergenController::class, 'index']);
 
 Route::middleware('web')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

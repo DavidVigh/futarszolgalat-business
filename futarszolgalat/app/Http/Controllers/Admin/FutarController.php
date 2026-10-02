@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreFutarRequest;
+use App\Http\Requests\Admin\UpdateFutarRequest;
 use App\Models\Futar;
 use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class FutarController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Futar::latest('id')->paginate());
+        return response()->json(Futar::query()->with('utolsoPozicio')->latest('id')->paginate());
     }
 
-    public function store(Request $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreFutarRequest $request, PythonApiClient $pythonApi): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
         $pythonApi->call('futar_hozzaadasa', $data);
         $futar = Futar::query()->where('telszam', $data['telszam'])->latest('id')->firstOrFail();
 
@@ -27,12 +27,12 @@ class FutarController extends Controller
 
     public function show(Futar $futar): JsonResponse
     {
-        return response()->json($futar);
+        return response()->json($futar->load('utolsoPozicio')->loadCount('rendelesek'));
     }
 
-    public function update(Request $request, Futar $futar, PythonApiClient $pythonApi): JsonResponse
+    public function update(UpdateFutarRequest $request, Futar $futar, PythonApiClient $pythonApi): JsonResponse
     {
-        $pythonApi->call('futar_modositasa', ['id' => $futar->id, ...$this->validated($request, true)]);
+        $pythonApi->call('futar_modositasa', ['id' => $futar->id, ...$request->validated()]);
 
         return response()->json($futar->refresh());
     }
@@ -42,19 +42,5 @@ class FutarController extends Controller
         $pythonApi->call('futar_torlese', ['id' => $futar->id]);
 
         return response()->json(status: 204);
-    }
-
-    private function validated(Request $request, bool $partial = false): array
-    {
-        $required = $partial ? 'sometimes' : 'required';
-
-        return $request->validate([
-            'nev' => [$required, 'string', 'max:255'],
-            'telszam' => [$required, 'string', 'max:30'],
-            'jarmu' => [$required, Rule::in(['auto', 'dron', 'bicikli', 'motor'])],
-            'ember' => [$required, 'boolean'],
-            'allapot' => [$required, Rule::in(['elerheto', 'uton', 'szunet'])],
-            'hatosugar_km' => [$required, 'integer', 'min:1'],
-        ]);
     }
 }

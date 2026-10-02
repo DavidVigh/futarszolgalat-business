@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreTermekRequest;
+use App\Http\Requests\Admin\UpdateTermekRequest;
 use App\Models\Termek;
 use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class TermekController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Termek::latest('id')->paginate());
+        return response()->json(Termek::query()->with('allergenek')->latest('id')->paginate());
     }
 
-    public function store(Request $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreTermekRequest $request, PythonApiClient $pythonApi): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
         $pythonApi->call('termek_hozzaadasa', $data);
         $termek = Termek::query()->where('nev', $data['nev'])->latest('id')->firstOrFail();
 
@@ -27,12 +27,12 @@ class TermekController extends Controller
 
     public function show(Termek $termek): JsonResponse
     {
-        return response()->json($termek);
+        return response()->json($termek->load('allergenek'));
     }
 
-    public function update(Request $request, Termek $termek, PythonApiClient $pythonApi): JsonResponse
+    public function update(UpdateTermekRequest $request, Termek $termek, PythonApiClient $pythonApi): JsonResponse
     {
-        $pythonApi->call('termek_modositasa', ['id' => $termek->id, ...$this->validated($request, true)]);
+        $pythonApi->call('termek_modositasa', ['id' => $termek->id, ...$request->validated()]);
 
         return response()->json($termek->refresh());
     }
@@ -42,20 +42,5 @@ class TermekController extends Controller
         $pythonApi->call('termek_torlese', ['id' => $termek->id]);
 
         return response()->json(status: 204);
-    }
-
-    private function validated(Request $request, bool $partial = false): array
-    {
-        $required = $partial ? 'sometimes' : 'required';
-
-        return $request->validate([
-            'tipus' => [$required, Rule::in(['etel', 'ital'])],
-            'nev' => [$required, 'string', 'max:255'],
-            'fogas' => [$required, 'string', 'max:255'],
-            'leiras' => ['sometimes', 'nullable', 'string'],
-            'ar' => [$required, 'integer', 'min:0'],
-            'elkeszitesi_ido' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'prioritas' => ['sometimes', 'boolean'],
-        ]);
     }
 }

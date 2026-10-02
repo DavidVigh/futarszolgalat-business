@@ -2,42 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\FutarLoginRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\Futar;
 use App\Models\User;
 use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function register(Request $request, PythonApiClient $pythonApi): JsonResponse
+    public function register(RegisterRequest $request, PythonApiClient $pythonApi): JsonResponse
     {
-        $data = $request->validate([
-            'nev' => ['required', 'string', 'max:255'],
-            'cim' => ['required', 'string', 'max:255'],
-            'telszam' => ['required', 'string', 'max:30', 'unique:felhasznalo,telszam'],
-            'jelszo' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-        $data['adminE'] = false;
+        $data = $request->validated();
+        $data['password'] = Hash::make($data['password']);
+        $data['isAdmin'] = false;
 
         $pythonApi->call('felhasznalo_hozzaadasa', $data);
-        $user = User::query()->where('telszam', $data['telszam'])->firstOrFail();
+        $user = User::query()->where('email', $data['email'])->firstOrFail();
         Auth::login($user);
         $request->session()->regenerate();
 
         return response()->json(['user' => $user], 201);
     }
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'telszam' => ['required', 'string'],
-            'jelszo' => ['required', 'string'],
-        ]);
-        $credentials = ['telszam' => $data['telszam'], 'password' => $data['jelszo']];
-
-        if (! Auth::attempt($credentials)) {
+        if (! Auth::attempt($request->validated())) {
             return response()->json(['message' => 'Hibas bejelentkezesi adatok.'], 422);
         }
 
@@ -46,15 +40,11 @@ class AuthController extends Controller
         return response()->json(['user' => $request->user()]);
     }
 
-    public function futarLogin(Request $request): JsonResponse
+    public function futarLogin(FutarLoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'nev' => ['required', 'string', 'max:255'],
-            'telszam' => ['required', 'string', 'max:30'],
-        ]);
         $futar = Futar::query()
-            ->where('nev', $data['nev'])
-            ->where('telszam', $data['telszam'])
+            ->where('nev', $request->validated('nev'))
+            ->where('telszam', $request->validated('telszam'))
             ->first();
 
         if ($futar === null) {

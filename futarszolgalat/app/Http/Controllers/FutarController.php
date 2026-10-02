@@ -10,13 +10,13 @@ use Illuminate\Http\Request;
 
 class FutarController extends Controller
 {
+    /** Orders assigned to the courier that are still waiting for pickup. */
     public function rendelesek(Request $request): JsonResponse
     {
         $futar = $this->authenticatedFutar($request);
-        $rendelesek = Rendeles::query()
-            ->whereNull('futar_id')
-            ->whereIn('statusz', ['uj', 'elerheto'])
-            ->where('km', '<=', $futar->hatosugar_km)
+        $rendelesek = $futar->rendelesek()
+            ->with('termekek')
+            ->whereIn('statusz', Rendeles::FELVETELRE_VAR)
             ->latest('prioritas')
             ->latest('id')
             ->paginate();
@@ -27,13 +27,15 @@ class FutarController extends Controller
     public function vallal(Request $request, Rendeles $rendeles, PythonApiClient $pythonApi): JsonResponse
     {
         $futar = $this->authenticatedFutar($request);
-        $aktiv = Rendeles::where('futar_id', $futar->id)->whereNotIn('statusz', ['teljesitve', 'lemondva'])->count();
-        abort_if($aktiv >= 5, 422, 'A futar maximum 5 aktiv rendelest vallalhat.');
+        abort_unless($rendeles->futar_id === $futar->id, 403, 'Ez a rendeles nem ehhez a futarhoz tartozik.');
+        abort_unless(in_array($rendeles->statusz, Rendeles::FELVETELRE_VAR, true), 422, 'A rendeles mar nem vallalhato.');
+
+        $uton = $futar->rendelesek()->where('statusz', 'úton')->count();
+        abort_if($uton >= 5, 422, 'A futar maximum 5 aktiv rendelest vallalhat.');
 
         $pythonApi->call('rendeles_modositasa', [
             'id' => $rendeles->id,
-            'futar_id' => $futar->id,
-            'statusz' => 'uton',
+            'statusz' => 'úton',
         ]);
 
         return response()->json($rendeles->refresh());
@@ -41,7 +43,9 @@ class FutarController extends Controller
 
     public function sajatRendelesek(Request $request): JsonResponse
     {
-        return response()->json(Rendeles::where('futar_id', $request->session()->get('futar_id'))->latest('id')->paginate());
+        $futar = $this->authenticatedFutar($request);
+
+        return response()->json($futar->rendelesek()->with('termekek')->latest('id')->paginate());
     }
 
     private function authenticatedFutar(Request $request): Futar

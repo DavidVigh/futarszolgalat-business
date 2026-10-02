@@ -146,3 +146,24 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run `vendor/bin/phpunit` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
 
 </laravel-boost-guidelines>
+
+# Project notes (futárszolgálat)
+
+Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not overwrite it.
+
+## Database
+
+- The SQLite schema comes from the DB team's SQL export (latest: `etelrendelesvegleges.db.sql`, 2026-10-02), not from Laravel migrations. Models must match that schema: the tables are Hungarian, singular and have no timestamps, e.g. `felhasznalo`, `futar`, `rendeles`, `rendeles_tetel`, `termek`, `allergen`.
+- `felhasznalo` uses `email` + `password` for login and `isAdmin` for the admin role. There are no `jelszo` or `adminE` columns.
+- `rendeles.statusz` values are accented: `új`, `elfogadva`, `készül`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZOK` constants instead of string literals.
+- Writes to the main tables go through the Python API (`App\Services\PythonApiClient`, endpoints in `config/python-api.php`); Laravel only reads them directly.
+
+## Pending DB changes
+
+A schema review was sent to the DB team on 2026-10-02: https://claude.ai/code/artifact/fa5ce2da-a515-42d9-8870-6ad2a85e39eb
+
+Until the corrected export arrives, do not build the customer ordering flow, the courier pickup flow or rating. They depend on review points 1, 2, 6, 7 and 11 (cascade deletes, nullable `futar_id`/`ertekeles`, `statusz` CHECK, unique `email`, `rendeles_tetel.egysegar`). When it arrives, check it against the review first, then update the models, FormRequests and controllers.
+
+Open questions:
+- Who sets `futar_id` and `km` when a customer places an order?
+- Will the Python API get write endpoints for `allergen`, `termek_allergen`, `rendeles_tetel` and `futar_pozicio`?

@@ -8,14 +8,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Reads a courier's current position from the MongoDB team's position service.
- * Positions are not stored in SQLite; a missing or unreachable service yields null.
+ * Reads a courier's current position through the Python API, which serves the
+ * MongoDB team's position data. A missing position or an unreachable API yields null.
  */
 class FutarPozicioClient
 {
     /**
-     * Accepted response shapes, optionally wrapped in "data":
-     * GeoJSON {"type": "Point", "coordinates": [lng, lat]} (MongoDB's native order),
+     * Accepted response shapes, optionally wrapped in "data": the Python API's
+     * {"gps_x": lat, "gps_y": lng, "cim": .., "frissitve": ..}, GeoJSON
+     * {"type": "Point", "coordinates": [lng, lat]} (MongoDB's native order),
      * {"location": <GeoJSON>}, or plain {"lat": .., "lng": ..}.
      *
      * @return array{lat: float, lng: float, frissitve: string|null}|null
@@ -56,7 +57,7 @@ class FutarPozicioClient
 
         [$lng, $lat] = is_array($koordinatak) && count($koordinatak) === 2
             ? array_values($koordinatak)
-            : [$pont['lng'] ?? null, $pont['lat'] ?? null];
+            : [$pont['lng'] ?? $pont['gps_y'] ?? null, $pont['lat'] ?? $pont['gps_x'] ?? null];
 
         if (! is_numeric($lat) || ! is_numeric($lng)) {
             return null;

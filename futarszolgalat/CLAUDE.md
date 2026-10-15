@@ -169,12 +169,13 @@ Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not o
 ## Architecture
 
 - Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs); rule violations throw `App\Exceptions\UzletiSzabalyException` (422). Ownership checks are in `App\Policies\RendelesPolicy`.
-- Courier positions are owned by the MongoDB team's service. `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`, `FUTAR_POZICIO_URL`) and returns `null` when the service is unset or down. The SQLite `futar_pozicio` table (one row per courier, `futarID`, `frissitve`) is kept until the team decides what to do with it; Laravel neither reads nor writes it.
+- Courier positions come from the MongoDB team's data through the Python API (`GET /futar/{id}/pozicio`). `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`; defaults to `PYTHON_API_URL` / `PYTHON_API_TOKEN`) and returns `null` when the API is unset or down. Laravel never talks to MongoDB directly. The SQLite `futar_pozicio` table (one row per courier, `futarID`, `frissitve`) is kept until the team decides what to do with it; Laravel neither reads nor writes it.
 - Login upgrades plaintext passwords from old exports to bcrypt on the first successful login.
 - Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused.
 
 ## Open questions
 
-- The MongoDB position API's URL and response shape (the client accepts GeoJSON or `lat`/`lng`), and what happens to the SQLite `futar_pozicio` table.
+- How the Python API will read positions from MongoDB (its `/futar/{id}/pozicio` response must keep `gps_x`/`gps_y`, or GeoJSON / `lat`/`lng`), and what happens to the SQLite `futar_pozicio` table.
+- `rendeles.km` will be calculated from the MongoDB data (via the Python API) instead of being sent by the customer; the restaurant location and address geocoding are still open.
 - Who sets `km` and `szallitasi_dij` when a customer places an order?
 - Does the Python API stay in the architecture?

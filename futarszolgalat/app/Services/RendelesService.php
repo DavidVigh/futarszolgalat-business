@@ -20,6 +20,10 @@ class RendelesService
      */
     public function letrehoz(User $felhasznalo, array $adatok): Rendeles
     {
+        if (! $felhasznalo->aktiv) {
+            throw new UzletiSzabalyException('Inaktiv felhasznalo nem rendelhet.');
+        }
+
         return DB::transaction(function () use ($felhasznalo, $adatok): Rendeles {
             $rendeles = Rendeles::create([
                 'felhasznalo_id' => $felhasznalo->id,
@@ -92,15 +96,21 @@ class RendelesService
         });
     }
 
+    /** The quantity of a product that was deactivated since can only go down (BL 7). */
     public function tetelModosit(Rendeles $rendeles, int $termekId, int $db): Rendeles
     {
         return DB::transaction(function () use ($rendeles, $termekId, $db): Rendeles {
             $this->ujStatuszuKell($rendeles, 'A tetelek csak uj statuszban modosithatok.');
 
-            $modositott = $this->tetelQuery($rendeles, $termekId)->update(['db' => $db]);
-            if ($modositott === 0) {
+            $jelenlegi = $this->tetelQuery($rendeles, $termekId)->value('db');
+            if ($jelenlegi === null) {
                 throw new UzletiSzabalyException('A termek nem szerepel a rendelesben.');
             }
+            if ($db > $jelenlegi && ! Termek::query()->aktivak()->whereKey($termekId)->exists()) {
+                throw new UzletiSzabalyException('Inaktiv termek mennyisege nem novelheto.');
+            }
+
+            $this->tetelQuery($rendeles, $termekId)->update(['db' => $db]);
 
             return $rendeles->fresh(['tetelek.termek']);
         });

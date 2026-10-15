@@ -85,6 +85,30 @@ class AdminTest extends TestCase
         $this->postJson('/api/auth/login', ['email' => $rendeles->felhasznalo->email, 'password' => 'password'])->assertUnprocessable();
     }
 
+    public function test_deactivated_user_loses_their_existing_session(): void
+    {
+        $vasarlo = User::factory()->create();
+        $termek = Termek::factory()->create();
+        $this->actingAs($vasarlo)->getJson('/api/rendelesek')->assertOk();
+
+        $vasarlo->update(['aktiv' => false]);
+
+        $this->postJson('/api/rendelesek', ['km' => 3, 'fizetesi_mod' => 'kartya', 'tetelek' => [['termek_id' => $termek->id, 'db' => 1]]])
+            ->assertForbidden();
+        $this->assertGuest();
+        $this->assertDatabaseCount('rendeles', 0);
+    }
+
+    public function test_admin_cannot_deactivate_or_demote_themself(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->patchJson("/api/admin/felhasznalok/{$admin->id}", ['aktiv' => false])->assertUnprocessable();
+        $this->actingAs($admin)->patchJson("/api/admin/felhasznalok/{$admin->id}", ['isAdmin' => false])->assertUnprocessable();
+        $this->actingAs($admin)->patchJson("/api/admin/felhasznalok/{$admin->id}", ['cim' => 'Debrecen'])->assertOk();
+        $this->assertTrue($admin->fresh()->aktiv && $admin->fresh()->isAdmin());
+    }
+
     public function test_deleting_a_courier_deactivates_them_and_keeps_the_order_history(): void
     {
         $admin = User::factory()->admin()->create();

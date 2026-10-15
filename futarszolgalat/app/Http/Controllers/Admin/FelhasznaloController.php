@@ -27,6 +27,10 @@ class FelhasznaloController extends Controller
 
     public function update(UpdateFelhasznaloRequest $request, User $user): JsonResponse
     {
+        $sajatMagat = $user->id === auth()->id();
+        abort_if($sajatMagat && $request->has('aktiv') && ! $request->boolean('aktiv'), 422, 'Az admin nem inaktivalhatja sajat magat.');
+        abort_if($sajatMagat && $request->has('isAdmin') && ! $request->boolean('isAdmin'), 422, 'Az admin nem veheti el a sajat admin jogat.');
+
         $user->update($request->validated());
 
         return response()->json($user->refresh());

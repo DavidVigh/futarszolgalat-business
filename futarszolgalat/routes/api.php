@@ -26,7 +26,7 @@ Route::middleware('web')->group(function (): void {
     Route::post('/auth/futar-login', [AuthController::class, 'futarLogin']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-    Route::middleware('auth')->group(function (): void {
+    Route::middleware(['auth', 'aktiv'])->group(function (): void {
         Route::get('/rendelesek', [RendelesController::class, 'index']);
         Route::post('/rendelesek', [RendelesController::class, 'store']);
         Route::get('/rendelesek/{rendeles}', [RendelesController::class, 'show']);
@@ -39,7 +39,7 @@ Route::middleware('web')->group(function (): void {
         Route::delete('/rendelesek/{rendeles}/tetelek/{termek}', [RendelesTetelController::class, 'destroy']);
     });
 
-    Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function (): void {
+    Route::middleware(['auth', 'aktiv', 'role:admin'])->prefix('admin')->group(function (): void {
         Route::apiResource('felhasznalok', AdminFelhasznaloController::class)
             ->parameters(['felhasznalok' => 'user']);
         Route::apiResource('futarok', AdminFutarController::class)

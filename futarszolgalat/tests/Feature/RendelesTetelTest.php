@@ -50,6 +50,19 @@ class RendelesTetelTest extends TestCase
             ->assertJsonCount(1, 'tetelek');
     }
 
+    public function test_quantity_of_a_deactivated_product_can_only_go_down(): void
+    {
+        $vasarlo = User::factory()->create();
+        $rendeles = Rendeles::factory()->create(['felhasznalo_id' => $vasarlo->id]);
+        $termekId = $rendeles->tetelek()->value('termek_id');
+        $this->actingAs($vasarlo)->patchJson("/api/rendelesek/{$rendeles->id}/tetelek/{$termekId}", ['db' => 3])->assertOk();
+
+        Termek::whereKey($termekId)->update(['aktiv' => false]);
+
+        $this->actingAs($vasarlo)->patchJson("/api/rendelesek/{$rendeles->id}/tetelek/{$termekId}", ['db' => 5])->assertUnprocessable();
+        $this->actingAs($vasarlo)->patchJson("/api/rendelesek/{$rendeles->id}/tetelek/{$termekId}", ['db' => 1])->assertOk();
+    }
+
     public function test_other_customer_cannot_change_items(): void
     {
         $rendeles = Rendeles::factory()->create();

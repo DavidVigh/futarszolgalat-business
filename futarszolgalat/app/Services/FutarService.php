@@ -46,6 +46,7 @@ class FutarService
             // Only an available courier without an active order can pick up (one active order per courier).
             $futarValtozott = Futar::query()
                 ->whereKey($futar->id)
+                ->where('aktiv', true)
                 ->where('allapot', Futar::ALLAPOT_ELERHETO)
                 ->whereDoesntHave('aktivRendeles')
                 ->update(['allapot' => Futar::ALLAPOT_UTON]);

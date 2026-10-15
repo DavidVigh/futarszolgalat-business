@@ -30,6 +30,12 @@ class FutarController extends Controller
 
     public function update(UpdateFutarRequest $request, Futar $futar): JsonResponse
     {
+        abort_if(
+            $request->has('aktiv') && ! $request->boolean('aktiv') && $futar->aktivRendeles()->exists(),
+            422,
+            'Aktiv rendelessel rendelkezo futar nem inaktivalhato.',
+        );
+
         $futar->update($request->validated());
 
         return response()->json($futar->refresh());

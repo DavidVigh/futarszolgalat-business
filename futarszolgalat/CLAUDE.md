@@ -153,7 +153,8 @@ Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not o
 
 ## Source of truth
 
-- The database is the DB team's final export (`futarszolgalat.db.sql`, 2026-10-15) with our fix script applied (`futarszolgalat_javitas.sql` -> `futarszolgalat_javitott.db`, sent back to the DB team). Where it differs from `Futarszolgalat_Business_Logic.pdf`, the database wins.
+- The database is the DB team's final export (`futarszolgalat.db.sql`, 2026-10-15) with our fix script applied. Everyone works from the corrected database in `database/export/`: `futarszolgalat_javitott.db` (open in DB Browser), `futarszolgalat_javitott.db.sql` (same, as a diffable dump) and `futarszolgalat_javitas.sql` (what was changed). Where it differs from `Futarszolgalat_Business_Logic.pdf`, the database wins.
+- Local setup: `cp database/export/futarszolgalat_javitott.db database/database.sqlite && php artisan migrate`. `database.sqlite` is gitignored; never edit the files in `database/export/` from the app.
 - Other business rules (validation, transactions, ownership) still come from the spec.
 
 ## Database

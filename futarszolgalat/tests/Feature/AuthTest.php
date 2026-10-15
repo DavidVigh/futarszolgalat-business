@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -77,5 +78,19 @@ class AuthTest extends TestCase
         $this->postJson('/api/auth/futar-login', ['nev' => $futar->nev, 'telszam' => $futar->telszam])
             ->assertOk()
             ->assertSessionHas('futar_id', $futar->id);
+    }
+
+    public function test_plural_customer_collection_route_forwards_to_python_api(): void
+    {
+        config()->set('python-api.base_url', 'https://python.test');
+        Http::fake([
+            'https://python.test/*' => Http::response(['data' => [['id' => 1]]]),
+        ]);
+
+        $this->getJson('/api/felhasznalok')
+            ->assertOk()
+            ->assertJsonPath('0.id', 1);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://python.test/felhasznalo');
     }
 }

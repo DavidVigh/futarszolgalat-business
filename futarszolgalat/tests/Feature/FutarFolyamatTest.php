@@ -178,6 +178,46 @@ class FutarFolyamatTest extends TestCase
             ->assertJsonPath('pozicio', null);
     }
 
+    public function test_courier_can_forward_position_and_delivery_address_for_route_planning(): void
+    {
+        config([
+            'futar-pozicio.base_url' => 'https://pozicio.test',
+            'utvonaltervezo.base_url' => 'https://utvonal.test',
+        ]);
+        $futar = Futar::factory()->allapot(Futar::ALLAPOT_UTON)->create();
+        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_UTON)->create([
+            'futar_id' => $futar->id,
+            'cim' => 'Budapest, Fo utca 12.',
+        ]);
+        Http::fake([
+            "pozicio.test/futar/{$futar->id}/pozicio" => Http::response([
+                'gps_x' => 47.4979,
+                'gps_y' => 19.0402,
+            ]),
+            'utvonal.test/utvonal' => Http::response(['route' => [['lat' => 47.5, 'lng' => 19.1]]]),
+        ]);
+
+        $this->futarkent($futar)->getJson("/api/futar/rendelesek/{$rendeles->id}/utvonal")
+            ->assertOk()
+            ->assertJsonPath('route.0.lat', 47.5);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://utvonal.test/utvonal'
+                && $request->data()['start'] === ['lat' => 47.4979, 'lng' => 19.0402]
+                && $request->data()['destination'] === ['address' => 'Budapest, Fo utca 12.'];
+        });
+    }
+
+    public function test_courier_cannot_request_a_route_for_another_couriers_order(): void
+    {
+        $futar = Futar::factory()->allapot(Futar::ALLAPOT_UTON)->create();
+        $masik = Futar::factory()->allapot(Futar::ALLAPOT_UTON)->create();
+        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_UTON)->create(['futar_id' => $masik->id]);
+
+        $this->futarkent($futar)->getJson("/api/futar/rendelesek/{$rendeles->id}/utvonal")
+            ->assertUnprocessable();
+    }
+
     public function test_guest_is_not_a_courier(): void
     {
         $this->getJson('/api/futar/rendelesek')->assertUnauthorized();

@@ -8,6 +8,33 @@ use RuntimeException;
 
 class PythonApiClient
 {
+    public function forward(string $method, string $endpoint, array $query = [], ?array $payload = null): array
+    {
+        $baseUrl = config('python-api.base_url');
+
+        if (! is_string($baseUrl) || $baseUrl === '' || $endpoint === '') {
+            throw new RuntimeException('A Python API nincs beallitva.');
+        }
+
+        $request = $this->request();
+        $response = match (strtoupper($method)) {
+            'GET' => $request->get($endpoint, $query),
+            'POST' => $request->post($endpoint, $payload ?? []),
+            'PUT' => $request->put($endpoint, $payload ?? []),
+            'PATCH' => $request->patch($endpoint, $payload ?? []),
+            'DELETE' => $request->delete($endpoint, $query),
+            default => throw new RuntimeException('Nem tamogatott HTTP metodus.'),
+        };
+
+        if ($response->failed()) {
+            throw new RuntimeException('A Python API lekerese sikertelen.', $response->status());
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
+
     public function call(string $operation, array $payload): array
     {
         $baseUrl = config('python-api.base_url');

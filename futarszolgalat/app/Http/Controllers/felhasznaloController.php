@@ -2,26 +2,33 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\FelhasznaloIdRequest;
 use App\Http\Requests\FelhasznaloStoreRequest;
-use App\Models\User;
 use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class felhasznaloController extends Controller
 {
-    public function post(FelhasznaloStoreRequest $request, PythonApiClient $pythonApi): JsonResponse
+    public function index(Request $request, PythonApiClient $pythonApi): JsonResponse
     {
-        $data = $request->validated();
-        $data['adminE'] = false;
-
-        $pythonApi->call('felhasznalo_hozzaadasa', $data);
-
-        return response()->json(User::query()->where('telszam', $data['telszam'])->firstOrFail(), 201);
+        return response()->json($pythonApi->get('felhasznalok_lekerese', $request->query()));
     }
 
-    public function get(FelhasznaloIdRequest $request): JsonResponse
+    public function store(FelhasznaloStoreRequest $request, PythonApiClient $pythonApi): JsonResponse
     {
-        return response()->json(User::findOrFail($request->integer('id')));
+        $data = $request->validated();
+        $data['admin'] = $data['admin'] ?? false;
+
+        return response()->json(
+            $pythonApi->call('felhasznalo_hozzaadasa', $data),
+            201
+        );
+    }
+
+    public function show(int $felhasznalo_id, PythonApiClient $pythonApi): JsonResponse
+    {
+        return response()->json(
+            $pythonApi->get('felhasznalo_lekerese', ['id' => $felhasznalo_id])
+        );
     }
 }

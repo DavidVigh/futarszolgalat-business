@@ -28,6 +28,35 @@ class PythonApiClient
         return is_array($json) ? ($json['data'] ?? $json) : [];
     }
 
+    public function get(string $operation, array $query = []): array
+    {
+        $baseUrl = config('python-api.base_url');
+        $endpoint = config("python-api.endpoints.$operation");
+
+        if (! is_string($baseUrl) || $baseUrl === '' || ! is_string($endpoint) || $endpoint === '') {
+            throw new RuntimeException('A Python API nincs beallitva.');
+        }
+
+        foreach ($query as $key => $value) {
+            $placeholder = '{'.$key.'}';
+
+            if (str_contains($endpoint, $placeholder)) {
+                $endpoint = str_replace($placeholder, rawurlencode((string) $value), $endpoint);
+                unset($query[$key]);
+            }
+        }
+
+        $response = $this->request()->get($endpoint, $query);
+
+        if ($response->failed()) {
+            throw new RuntimeException('A Python API lekerese sikertelen.', $response->status());
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? ($json['data'] ?? $json) : [];
+    }
+
     private function request(): PendingRequest
     {
         $request = Http::baseUrl(rtrim((string) config('python-api.base_url'), '/'))

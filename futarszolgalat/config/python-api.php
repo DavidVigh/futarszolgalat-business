@@ -5,7 +5,9 @@ return [
     'token' => env('PYTHON_API_TOKEN'),
     'timeout' => (int) env('PYTHON_API_TIMEOUT', 10),
     'endpoints' => [
-        'felhasznalo_hozzaadasa' => env('PYTHON_API_FELHASZNALO_HOZZAADASA', '/felhasznalo_hozzaadasa'),
+        'felhasznalo_hozzaadasa' => env('PYTHON_API_FELHASZNALO_HOZZAADASA', '/felhasznalo'),
+        'felhasznalok_lekerese' => env('PYTHON_API_FELHASZNALOK_LEKERESE', '/felhasznalo'),
+        'felhasznalo_lekerese' => env('PYTHON_API_FELHASZNALO_LEKERESE', '/felhasznalo/{id}'),
         'felhasznalo_modositasa' => env('PYTHON_API_FELHASZNALO_MODOSITASA', '/felhasznalo_modositasa'),
         'felhasznalo_torlese' => env('PYTHON_API_FELHASZNALO_TORLESE', '/felhasznalo_torlese'),
         'futar_hozzaadasa' => env('PYTHON_API_FUTAR_HOZZAADASA', '/futar_hozzaadasa'),

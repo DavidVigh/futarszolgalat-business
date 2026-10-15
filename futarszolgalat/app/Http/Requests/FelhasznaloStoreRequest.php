@@ -16,8 +16,10 @@ class FelhasznaloStoreRequest extends FormRequest
         return [
             'nev' => ['required', 'string', 'max:255'],
             'cim' => ['required', 'string', 'max:255'],
-            'telszam' => ['required', 'string', 'max:30', 'unique:felhasznalo,telszam'],
-            'jelszo' => ['required', 'string', 'min:8', 'confirmed'],
+            'telszam' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'max:255'],
+            'jelszo' => ['required', 'string', 'min:8'],
+            'admin' => ['sometimes', 'boolean'],
         ];
     }
 }

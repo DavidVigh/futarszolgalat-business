@@ -5,9 +5,14 @@ use App\Http\Controllers\Admin\FutarController as AdminFutarController;
 use App\Http\Controllers\Admin\RendelesController as AdminRendelesController;
 use App\Http\Controllers\Admin\TermekController as AdminTermekController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\felhasznaloController;
 use App\Http\Controllers\FutarController;
 use App\Http\Controllers\TermekController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/felhasznalo', [felhasznaloController::class, 'index']);
+Route::post('/felhasznalo', [felhasznaloController::class, 'store']);
+Route::get('/felhasznalo/{felhasznalo_id}', [felhasznaloController::class, 'show']);
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);

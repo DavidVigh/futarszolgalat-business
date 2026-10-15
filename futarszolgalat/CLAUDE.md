@@ -177,5 +177,5 @@ Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not o
 
 - How the Python API will read positions from MongoDB (its `/futar/{id}/pozicio` response must keep `gps_x`/`gps_y`, or GeoJSON / `lat`/`lng`), and what happens to the SQLite `futar_pozicio` table.
 - `rendeles.km` will be calculated from the MongoDB data (via the Python API) instead of being sent by the customer; the restaurant location and address geocoding are still open.
-- Who sets `km` and `szallitasi_dij` when a customer places an order?
-- Does the Python API stay in the architecture?
+- The delivery fee (`szallitasi_dij`) rule; it is always 0 for now.
+- Whether Laravel's writes move to the Python API (`PythonApiClient`) instead of writing SQLite directly.

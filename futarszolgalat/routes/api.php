@@ -7,27 +7,18 @@ use App\Http\Controllers\Admin\RendelesController as AdminRendelesController;
 use App\Http\Controllers\Admin\TermekController as AdminTermekController;
 use App\Http\Controllers\AllergenController;
 use App\Http\Controllers\AuthController;
-<<<<<<< HEAD
 use App\Http\Controllers\felhasznaloController;
-=======
 use App\Http\Controllers\FogasController;
->>>>>>> 09b7d0e26686a090468a3b123eea7540499711d1
 use App\Http\Controllers\FutarController;
 use App\Http\Controllers\RendelesController;
 use App\Http\Controllers\RendelesTetelController;
 use App\Http\Controllers\TermekController;
 use Illuminate\Support\Facades\Route;
 
-<<<<<<< HEAD
 Route::get('/felhasznalo', [felhasznaloController::class, 'index']);
 Route::post('/felhasznalo', [felhasznaloController::class, 'store']);
 Route::get('/felhasznalo/{felhasznalo_id}', [felhasznaloController::class, 'show']);
 
-Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
-Route::post('/auth/futar-login', [AuthController::class, 'futarLogin']);
-=======
->>>>>>> 09b7d0e26686a090468a3b123eea7540499711d1
 Route::get('/termekek', [TermekController::class, 'index']);
 Route::get('/termekek/{termek}', [TermekController::class, 'show']);
 Route::get('/allergenek', [AllergenController::class, 'index']);

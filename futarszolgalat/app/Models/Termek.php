@@ -2,24 +2,45 @@
 
 namespace App\Models;
 
+use Database\Factories\TermekFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Termek extends Model
 {
+    /** @use HasFactory<TermekFactory> */
+    use HasFactory;
+
     public const TIPUSOK = ['etel', 'ital'];
 
     public const FOGASOK = ['leves', 'eloetel', 'foetel', 'koret', 'salata', 'teszta', 'pizza', 'burger', 'edesseg', 'hideg_ital', 'meleg_ital'];
+
+    public const ITAL_FOGASOK = ['hideg_ital', 'meleg_ital'];
 
     protected $table = 'termek';
 
     public $timestamps = false;
 
-    protected $fillable = ['tipus', 'nev', 'fogas', 'leiras', 'ar', 'elkeszitesi_ido', 'prioritas'];
+    protected $fillable = ['tipus', 'nev', 'fogas', 'leiras', 'ar', 'elkeszitesi_ido', 'prioritas', 'aktiv'];
 
     protected function casts(): array
     {
-        return ['ar' => 'integer', 'elkeszitesi_ido' => 'integer', 'prioritas' => 'integer'];
+        return [
+            'ar' => 'integer',
+            'elkeszitesi_ido' => 'integer',
+            'prioritas' => 'integer',
+            'aktiv' => 'boolean',
+        ];
+    }
+
+    /** @param  Builder<Termek>  $query */
+    #[Scope]
+    protected function aktivak(Builder $query): void
+    {
+        $query->where('aktiv', true);
     }
 
     public function allergenek(): BelongsToMany
@@ -30,6 +51,6 @@ class Termek extends Model
     public function rendelesek(): BelongsToMany
     {
         return $this->belongsToMany(Rendeles::class, 'rendeles_tetel', 'termek_id', 'rendeles_id')
-            ->withPivot('db');
+            ->withPivot('db', 'egysegar');
     }
 }

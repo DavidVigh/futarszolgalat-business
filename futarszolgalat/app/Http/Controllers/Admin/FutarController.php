@@ -6,40 +6,38 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFutarRequest;
 use App\Http\Requests\Admin\UpdateFutarRequest;
 use App\Models\Futar;
-use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
 
 class FutarController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Futar::query()->with('utolsoPozicio')->latest('id')->paginate());
+        return response()->json(Futar::query()->with('aktualisPozicio')->latest('id')->paginate());
     }
 
-    public function store(StoreFutarRequest $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreFutarRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $pythonApi->call('futar_hozzaadasa', $data);
-        $futar = Futar::query()->where('telszam', $data['telszam'])->latest('id')->firstOrFail();
-
-        return response()->json($futar, 201);
+        return response()->json(Futar::create($request->validated())->refresh(), 201);
     }
 
     public function show(Futar $futar): JsonResponse
     {
-        return response()->json($futar->load('utolsoPozicio')->loadCount('rendelesek'));
+        return response()->json($futar->load(['aktualisPozicio', 'aktivRendeles'])->loadCount('rendelesek'));
     }
 
-    public function update(UpdateFutarRequest $request, Futar $futar, PythonApiClient $pythonApi): JsonResponse
+    public function update(UpdateFutarRequest $request, Futar $futar): JsonResponse
     {
-        $pythonApi->call('futar_modositasa', ['id' => $futar->id, ...$request->validated()]);
+        $futar->update($request->validated());
 
         return response()->json($futar->refresh());
     }
 
-    public function destroy(Futar $futar, PythonApiClient $pythonApi): JsonResponse
+    /** Orders keep their history without a courier (SET NULL); positions are deleted (BL 4). */
+    public function destroy(Futar $futar): JsonResponse
     {
-        $pythonApi->call('futar_torlese', ['id' => $futar->id]);
+        abort_if($futar->aktivRendeles()->exists(), 422, 'Aktiv rendelessel rendelkezo futar nem torolheto.');
+
+        $futar->delete();
 
         return response()->json(status: 204);
     }

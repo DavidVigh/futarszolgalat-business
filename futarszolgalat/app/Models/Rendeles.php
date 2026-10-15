@@ -2,16 +2,30 @@
 
 namespace App\Models;
 
+use Database\Factories\RendelesFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Rendeles extends Model
 {
-    public const STATUSZOK = ['új', 'elfogadva', 'készül', 'úton', 'kiszállítva', 'lemondva'];
+    /** @use HasFactory<RendelesFactory> */
+    use HasFactory;
 
-    /** Statuses in which the order is still waiting for the courier to pick it up. */
-    public const FELVETELRE_VAR = ['új', 'elfogadva', 'készül'];
+    public const STATUSZ_UJ = 'új';
+
+    public const STATUSZ_FELVEVE = 'felvéve';
+
+    public const STATUSZ_UTON = 'úton';
+
+    public const STATUSZ_KISZALLITVA = 'kiszállítva';
+
+    public const STATUSZ_LEMONDVA = 'lemondva';
+
+    /** Statuses in which the order is being handled by a courier. */
+    public const AKTIV_STATUSZOK = [self::STATUSZ_FELVEVE, self::STATUSZ_UTON];
 
     public const FIZETESI_MODOK = ['keszpenz', 'kartya'];
 
@@ -31,6 +45,7 @@ class Rendeles extends Model
             'jatt' => 'integer',
             'km' => 'integer',
             'ertekeles' => 'integer',
+            'letrehozva' => 'datetime',
         ];
     }
 
@@ -44,9 +59,14 @@ class Rendeles extends Model
         return $this->belongsTo(Futar::class, 'futar_id');
     }
 
+    public function tetelek(): HasMany
+    {
+        return $this->hasMany(RendelesTetel::class, 'rendeles_id');
+    }
+
     public function termekek(): BelongsToMany
     {
         return $this->belongsToMany(Termek::class, 'rendeles_tetel', 'rendeles_id', 'termek_id')
-            ->withPivot('db');
+            ->withPivot('db', 'egysegar');
     }
 }

@@ -12,11 +12,10 @@ class StoreFutarRequest extends FormRequest
     {
         return [
             'nev' => ['required', 'string', 'max:255'],
-            'telszam' => ['required', 'string', 'max:30'],
+            'telszam' => ['required', 'string', 'regex:/^(\+36|06)[0-9]{8,9}$/', 'unique:futar,telszam'],
             'jarmu' => ['required', Rule::in(Futar::JARMUVEK)],
-            // DB CHECK: a drone cannot carry a person
-            'ember' => ['required', 'boolean', 'declined_if:jarmu,dron'],
-            'allapot' => ['sometimes', Rule::in(Futar::ALLAPOTOK)],
+            // A drone cannot carry a person (BL 3)
+            'ember' => ['sometimes', 'boolean', 'declined_if:jarmu,dron'],
             'hatosugar_km' => ['required', 'integer', 'min:1'],
         ];
     }

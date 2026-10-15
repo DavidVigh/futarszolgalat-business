@@ -11,11 +11,15 @@ class FutarPozicio extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['futarID', 'gps_x', 'gps_y', 'cim'];
+    protected $fillable = ['futarID', 'gps_x', 'gps_y', 'cim', 'rogzitve'];
 
     protected function casts(): array
     {
-        return ['gps_x' => 'float', 'gps_y' => 'float'];
+        return [
+            'gps_x' => 'float',
+            'gps_y' => 'float',
+            'rogzitve' => 'datetime',
+        ];
     }
 
     public function futar(): BelongsTo

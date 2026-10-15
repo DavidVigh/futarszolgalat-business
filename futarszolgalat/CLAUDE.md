@@ -151,19 +151,24 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not overwrite it.
 
+## Source of truth
+
+- Business rules come from the team spec `Futarszolgalat_Business_Logic.pdf` (roles, validation, state machines, transactions, required DB changes in chapter 12). Implement against it.
+- The DB team owns the schema. The code targets `etelrendeles_javitott.db.sql` (2026-10-02): the team's export `etelrendelesvegleges.db.sql` plus the spec's chapter 12 changes. A schema review was sent to the DB team: https://claude.ai/code/artifact/fa5ce2da-a515-42d9-8870-6ad2a85e39eb
+
 ## Database
 
-- The SQLite schema comes from the DB team's SQL export (latest: `etelrendelesvegleges.db.sql`, 2026-10-02), not from Laravel migrations. Models must match that schema: the tables are Hungarian, singular and have no timestamps, e.g. `felhasznalo`, `futar`, `rendeles`, `rendeles_tetel`, `termek`, `allergen`.
-- `felhasznalo` uses `email` + `password` for login and `isAdmin` for the admin role. There are no `jelszo` or `adminE` columns.
-- `rendeles.statusz` values are accented: `új`, `elfogadva`, `készül`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZOK` constants instead of string literals.
-- Writes to the main tables go through the Python API (`App\Services\PythonApiClient`, endpoints in `config/python-api.php`); Laravel only reads them directly.
+- The schema comes from the SQL export, not from Laravel migrations. `database/schema/sqlite-schema.sql` holds it without data (plus Laravel's `migrations` table); `RefreshDatabase` and `php artisan migrate` load it. Update it whenever the DB team ships a new export.
+- Tables are Hungarian, singular and have no timestamps: `felhasznalo`, `futar`, `futar_pozicio`, `rendeles`, `rendeles_tetel`, `termek`, `allergen`, `termek_allergen`.
+- `felhasznalo` uses `email` + `password` for login and `isAdmin` for the admin role.
+- `rendeles.statusz` values are accented: `új`, `felvéve`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZ_*` constants instead of string literals. Courier states: `elerheto`, `uton`, `szunet`.
 
-## Pending DB changes
+## Architecture
 
-A schema review was sent to the DB team on 2026-10-02: https://claude.ai/code/artifact/fa5ce2da-a515-42d9-8870-6ad2a85e39eb
+- Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs per spec chapter 11); rule violations throw `App\Exceptions\UzletiSzabalyException`. Ownership checks are in `App\Policies\RendelesPolicy`.
+- Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused — agree with the team before routing writes through the Python API again.
 
-Until the corrected export arrives, do not build the customer ordering flow, the courier pickup flow or rating. They depend on review points 1, 2, 6, 7 and 11 (cascade deletes, nullable `futar_id`/`ertekeles`, `statusz` CHECK, unique `email`, `rendeles_tetel.egysegar`). When it arrives, check it against the review first, then update the models, FormRequests and controllers.
+## Open questions
 
-Open questions:
-- Who sets `futar_id` and `km` when a customer places an order?
-- Will the Python API get write endpoints for `allergen`, `termek_allergen`, `rendeles_tetel` and `futar_pozicio`?
+- Who sets `km` when a customer places an order?
+- Does the Python API stay in the architecture, and if so, which writes go through it?

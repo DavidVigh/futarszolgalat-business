@@ -6,16 +6,21 @@ use App\Models\Futar;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * The courier status (allapot) is not editable here: it only changes through
+ * the order flow and the courier's own elerheto/szunet switch (BL 10).
+ */
 class UpdateFutarRequest extends FormRequest
 {
     public function rules(): array
     {
+        $jarmu = $this->input('jarmu', $this->route('futar')?->jarmu);
+
         return [
             'nev' => ['sometimes', 'required', 'string', 'max:255'],
-            'telszam' => ['sometimes', 'required', 'string', 'max:30'],
+            'telszam' => ['sometimes', 'required', 'string', 'regex:/^(\+36|06)[0-9]{8,9}$/', Rule::unique('futar', 'telszam')->ignore($this->route('futar'))],
             'jarmu' => ['sometimes', 'required', Rule::in(Futar::JARMUVEK)],
-            'ember' => ['sometimes', 'boolean', 'declined_if:jarmu,dron'],
-            'allapot' => ['sometimes', 'required', Rule::in(Futar::ALLAPOTOK)],
+            'ember' => ['sometimes', 'boolean', Rule::when($jarmu === 'dron', ['declined'])],
             'hatosugar_km' => ['sometimes', 'required', 'integer', 'min:1'],
         ];
     }

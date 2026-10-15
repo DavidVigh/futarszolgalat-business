@@ -7,22 +7,15 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\Futar;
 use App\Models\User;
-use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function register(RegisterRequest $request, PythonApiClient $pythonApi): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $data['password'] = Hash::make($data['password']);
-        $data['isAdmin'] = false;
-
-        $pythonApi->call('felhasznalo_hozzaadasa', $data);
-        $user = User::query()->where('email', $data['email'])->firstOrFail();
+        $user = User::create([...$request->validated(), 'isAdmin' => false]);
         Auth::login($user);
         $request->session()->regenerate();
 
@@ -51,8 +44,8 @@ class AuthController extends Controller
             return response()->json(['message' => 'A futar nem talalhato.'], 422);
         }
 
-        $request->session()->put('futar_id', $futar->id);
         $request->session()->regenerate();
+        $request->session()->put('futar_id', $futar->id);
 
         return response()->json(['futar' => $futar]);
     }

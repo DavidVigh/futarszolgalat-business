@@ -3,58 +3,45 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreFutarRequest;
+use App\Http\Requests\Admin\UpdateFutarRequest;
 use App\Models\Futar;
-use App\Services\PythonApiClient;
+use App\Services\FutarPozicioClient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class FutarController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Futar::latest('id')->paginate());
+        return response()->json(Futar::query()->latest('id')->paginate());
     }
 
-    public function store(Request $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreFutarRequest $request): JsonResponse
     {
-        $data = $this->validated($request);
-        $pythonApi->call('futar_hozzaadasa', $data);
-        $futar = Futar::query()->where('telszam', $data['telszam'])->latest('id')->firstOrFail();
-
-        return response()->json($futar, 201);
+        return response()->json(Futar::create($request->validated())->refresh(), 201);
     }
 
-    public function show(Futar $futar): JsonResponse
+    public function show(Futar $futar, FutarPozicioClient $poziciok): JsonResponse
     {
-        return response()->json($futar);
+        $futar->load('aktivRendeles')->loadCount('rendelesek');
+
+        return response()->json([...$futar->toArray(), 'pozicio' => $poziciok->aktualis($futar->id)]);
     }
 
-    public function update(Request $request, Futar $futar, PythonApiClient $pythonApi): JsonResponse
+    public function update(UpdateFutarRequest $request, Futar $futar): JsonResponse
     {
-        $pythonApi->call('futar_modositasa', ['id' => $futar->id, ...$this->validated($request, true)]);
+        $futar->update($request->validated());
 
         return response()->json($futar->refresh());
     }
 
-    public function destroy(Futar $futar, PythonApiClient $pythonApi): JsonResponse
+    /** Couriers are deactivated, not deleted: their orders keep them (ON DELETE RESTRICT). */
+    public function destroy(Futar $futar): JsonResponse
     {
-        $pythonApi->call('futar_torlese', ['id' => $futar->id]);
+        abort_if($futar->aktivRendeles()->exists(), 422, 'Aktiv rendelessel rendelkezo futar nem inaktivalhato.');
 
-        return response()->json(status: 204);
-    }
+        $futar->update(['aktiv' => false]);
 
-    private function validated(Request $request, bool $partial = false): array
-    {
-        $required = $partial ? 'sometimes' : 'required';
-
-        return $request->validate([
-            'nev' => [$required, 'string', 'max:255'],
-            'telszam' => [$required, 'string', 'max:30'],
-            'jarmu' => [$required, Rule::in(['auto', 'dron', 'bicikli', 'motor'])],
-            'ember' => [$required, 'boolean'],
-            'allapot' => [$required, Rule::in(['elerheto', 'uton', 'szunet'])],
-            'hatosugar_km' => [$required, 'integer', 'min:1'],
-        ]);
+        return response()->json($futar->refresh());
     }
 }

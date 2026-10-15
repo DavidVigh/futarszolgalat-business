@@ -3,59 +3,57 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreTermekRequest;
+use App\Http\Requests\Admin\UpdateTermekRequest;
 use App\Models\Termek;
-use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class TermekController extends Controller
 {
+    /** Every product, inactive ones included. */
     public function index(): JsonResponse
     {
-        return response()->json(Termek::latest('id')->paginate());
+        return response()->json(Termek::query()->with('allergenek')->latest('id')->paginate());
     }
 
-    public function store(Request $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreTermekRequest $request): JsonResponse
     {
-        $data = $this->validated($request);
-        $pythonApi->call('termek_hozzaadasa', $data);
-        $termek = Termek::query()->where('nev', $data['nev'])->latest('id')->firstOrFail();
+        $termek = DB::transaction(function () use ($request): Termek {
+            $termek = Termek::create(Arr::except($request->validated(), 'allergenek'));
+            $termek->allergenek()->sync($request->validated('allergenek', []));
 
-        return response()->json($termek, 201);
+            return $termek;
+        });
+
+        return response()->json($termek->refresh()->load('allergenek'), 201);
     }
 
     public function show(Termek $termek): JsonResponse
     {
-        return response()->json($termek);
+        return response()->json($termek->load('allergenek'));
     }
 
-    public function update(Request $request, Termek $termek, PythonApiClient $pythonApi): JsonResponse
+    public function update(UpdateTermekRequest $request, Termek $termek): JsonResponse
     {
-        $pythonApi->call('termek_modositasa', ['id' => $termek->id, ...$this->validated($request, true)]);
+        DB::transaction(function () use ($request, $termek): void {
+            $termek->update(Arr::except($request->validated(), 'allergenek'));
+            if ($request->has('allergenek')) {
+                $termek->allergenek()->sync($request->validated('allergenek', []));
+            }
+        });
 
-        return response()->json($termek->refresh());
+        return response()->json($termek->refresh()->load('allergenek'));
     }
 
-    public function destroy(Termek $termek, PythonApiClient $pythonApi): JsonResponse
+    /** A product that was ever ordered can only be deactivated (BL 7). */
+    public function destroy(Termek $termek): JsonResponse
     {
-        $pythonApi->call('termek_torlese', ['id' => $termek->id]);
+        abort_if($termek->rendelesek()->exists(), 422, 'Rendelesben mar szerepelt termek nem torolheto, csak inaktivalhato (aktiv: false).');
+
+        $termek->delete();
 
         return response()->json(status: 204);
-    }
-
-    private function validated(Request $request, bool $partial = false): array
-    {
-        $required = $partial ? 'sometimes' : 'required';
-
-        return $request->validate([
-            'tipus' => [$required, Rule::in(['etel', 'ital'])],
-            'nev' => [$required, 'string', 'max:255'],
-            'fogas' => [$required, 'string', 'max:255'],
-            'leiras' => ['sometimes', 'nullable', 'string'],
-            'ar' => [$required, 'integer', 'min:0'],
-            'elkeszitesi_ido' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'prioritas' => ['sometimes', 'boolean'],
-        ]);
     }
 }

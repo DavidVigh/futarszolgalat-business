@@ -146,3 +146,35 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run `vendor/bin/phpunit` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
 
 </laravel-boost-guidelines>
+
+# Project notes (futárszolgálat)
+
+Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not overwrite it.
+
+## Source of truth
+
+- The database is the DB team's final export (`futarszolgalat.db.sql`, 2026-10-15) with our fix script applied. Everyone works from the corrected database in `database/export/`: `futarszolgalat_javitott.db` (open in DB Browser), `futarszolgalat_javitott.db.sql` (same, as a diffable dump) and `futarszolgalat_javitas.sql` (what was changed). Where it differs from `Futarszolgalat_Business_Logic.pdf`, the database wins.
+- Local setup: `cp database/export/futarszolgalat_javitott.db database/database.sqlite && php artisan migrate`. `database.sqlite` is gitignored; never edit the files in `database/export/` from the app.
+- Other business rules (validation, transactions, ownership) still come from the spec.
+
+## Database
+
+- The schema comes from the SQL export, not from Laravel migrations. `database/schema/sqlite-schema.sql` holds it without data, plus Laravel's `migrations` table and the `fogas` lookup rows; `RefreshDatabase` and `php artisan migrate` load it. Regenerate it whenever the DB team ships a new export.
+- Tables are Hungarian, singular and have no timestamps: `felhasznalo`, `futar`, `rendeles`, `rendeles_tetel`, `szamlazasi_adat`, `termek`, `fogas`, `allergen`, `termek_allergen`.
+- `rendeles.statusz`: `kosar`, `új`, `elfogadva`, `készül`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZ_*` constants. Flow: courier picks up (`új` -> `elfogadva`), admin/kitchen marks `készül`, courier collects (`elfogadva`/`készül` -> `úton`) and delivers. The API does not create `kosar` orders.
+- The DB enforces a lot itself: CHECKs (e.g. `jatt` only on delivered card orders, courier required outside `kosar`/`új`/`lemondva`), triggers (courier active/range checks, `egysegar` and `kiszallitva_ido` filled in), and `ON DELETE RESTRICT` — users and couriers are deactivated (`aktiv = 0`), never deleted.
+- `termek.fogas` + `tipus` must match a `fogas` row.
+- There are no drones: `futar.jarmu` is `auto`, `bicikli` or `motor`.
+
+## Architecture
+
+- Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs); rule violations throw `App\Exceptions\UzletiSzabalyException` (422). Ownership checks are in `App\Policies\RendelesPolicy`.
+- Courier positions are owned by the MongoDB team's service. `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`, `FUTAR_POZICIO_URL`) and returns `null` when the service is unset or down. The SQLite `futar_pozicio` table (one row per courier, `futarID`, `frissitve`) is kept until the team decides what to do with it; Laravel neither reads nor writes it.
+- Login upgrades plaintext passwords from old exports to bcrypt on the first successful login.
+- Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused.
+
+## Open questions
+
+- The MongoDB position API's URL and response shape (the client accepts GeoJSON or `lat`/`lng`), and what happens to the SQLite `futar_pozicio` table.
+- Who sets `km` and `szallitasi_dij` when a customer places an order?
+- Does the Python API stay in the architecture?

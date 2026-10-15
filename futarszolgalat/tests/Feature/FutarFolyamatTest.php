@@ -132,12 +132,12 @@ class FutarFolyamatTest extends TestCase
         $this->futarkent($uton)->patchJson('/api/futar/allapot', ['allapot' => 'szunet'])->assertUnprocessable();
     }
 
-    public function test_position_comes_from_the_mongodb_position_service(): void
+    public function test_position_also_accepts_mongodb_geojson(): void
     {
         config(['futar-pozicio.base_url' => 'https://pozicio.test']);
         $futar = Futar::factory()->create();
         Http::fake([
-            "pozicio.test/futarok/{$futar->id}/pozicio" => Http::response([
+            "pozicio.test/futar/{$futar->id}/pozicio" => Http::response([
                 'location' => ['type' => 'Point', 'coordinates' => [19.0402, 47.4979]],
                 'updatedAt' => '2026-10-15T12:00:00Z',
             ]),
@@ -148,6 +148,24 @@ class FutarFolyamatTest extends TestCase
             ->assertJsonPath('pozicio.lat', 47.4979)
             ->assertJsonPath('pozicio.lng', 19.0402)
             ->assertJsonPath('pozicio.frissitve', '2026-10-15T12:00:00Z');
+    }
+
+    public function test_position_from_the_python_api_format(): void
+    {
+        config(['futar-pozicio.base_url' => 'https://python-api.test', 'futar-pozicio.endpoint' => '/futar/{id}/pozicio']);
+        $futar = Futar::factory()->create();
+        Http::fake([
+            "python-api.test/futar/{$futar->id}/pozicio" => Http::response([
+                'id' => 1, 'futar_id' => $futar->id, 'gps_x' => 47.4979, 'gps_y' => 19.0402,
+                'cim' => 'Budapest, Deák Ferenc tér', 'frissitve' => '2026-10-15 13:43:04',
+            ]),
+        ]);
+
+        $this->futarkent($futar)->getJson('/api/futar/en')
+            ->assertOk()
+            ->assertJsonPath('pozicio.lat', 47.4979)
+            ->assertJsonPath('pozicio.lng', 19.0402)
+            ->assertJsonPath('pozicio.frissitve', '2026-10-15 13:43:04');
     }
 
     public function test_position_is_null_when_the_service_is_unavailable(): void

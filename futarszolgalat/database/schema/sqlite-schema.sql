@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS "futar" (
     aktiv         INTEGER NOT NULL DEFAULT 1 CHECK (aktiv IN (0, 1)),
     PRIMARY KEY (id AUTOINCREMENT)
 );
+CREATE TABLE IF NOT EXISTS "futar_pozicio" (
+    id         INTEGER NOT NULL,
+    futarID    INTEGER NOT NULL UNIQUE,
+    gps_x      REAL    NOT NULL,
+    gps_y      REAL    NOT NULL,
+    cim        TEXT    NOT NULL,
+    frissitve  TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    PRIMARY KEY (id AUTOINCREMENT),
+    CONSTRAINT fk_futar_pozicio_futar FOREIGN KEY (futarID)
+        REFERENCES futar (id) ON DELETE RESTRICT
+);
 CREATE TABLE IF NOT EXISTS "rendeles" (
     id               INTEGER NOT NULL,
     felhasznalo_id   INTEGER NOT NULL,
@@ -142,13 +153,20 @@ JOIN termek_allergen ta ON t.id = ta.termek_id
 JOIN allergen a         ON ta.allergen_kod = a.kod
 WHERE t.tipus = 'etel';
 CREATE VIEW IF NOT EXISTS v_elerheto_futarok AS
-SELECT f.id, f.nev, f.telszam, f.jarmu, f.hatosugar_km
+SELECT f.id, f.nev, f.telszam, f.jarmu, f.hatosugar_km,
+       fp.gps_x, fp.gps_y, fp.cim
 FROM futar f
+LEFT JOIN futar_pozicio fp ON f.id = fp.futarID
 WHERE f.allapot = 'elerheto' AND f.aktiv = 1;
 CREATE VIEW IF NOT EXISTS v_etelek AS
 SELECT id, nev, fogas, leiras, ar, elkeszitesi_ido, prioritas
 FROM termek
 WHERE tipus = 'etel' AND aktiv = 1;
+CREATE VIEW IF NOT EXISTS v_futar_poziciok AS
+SELECT f.id AS futar_id, f.nev AS futar, f.jarmu, f.allapot, f.hatosugar_km,
+       fp.gps_x, fp.gps_y, fp.cim AS aktualis_cim, fp.frissitve
+FROM futar f
+LEFT JOIN futar_pozicio fp ON f.id = fp.futarID;
 CREATE VIEW IF NOT EXISTS v_italok AS
 SELECT id, nev, fogas, leiras, ar, prioritas
 FROM termek
@@ -232,6 +250,7 @@ WHERE aktiv = 1;
 CREATE INDEX IF NOT EXISTS id_felhasznalo_nev                  ON felhasznalo(nev COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS id_futar_allapot_jarmu              ON futar(allapot, jarmu);
 CREATE INDEX IF NOT EXISTS id_futar_nev                        ON futar(nev COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS id_futar_pozicio_futarID            ON futar_pozicio(futarID);
 CREATE INDEX IF NOT EXISTS id_rendeles_felhasznalo_id          ON rendeles(felhasznalo_id);
 CREATE INDEX IF NOT EXISTS id_rendeles_futar_id                ON rendeles(futar_id);
 CREATE INDEX IF NOT EXISTS id_rendeles_futar_statusz           ON rendeles(futar_id, statusz);

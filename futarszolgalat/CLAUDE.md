@@ -168,12 +168,12 @@ Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not o
 ## Architecture
 
 - Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs); rule violations throw `App\Exceptions\UzletiSzabalyException` (422). Ownership checks are in `App\Policies\RendelesPolicy`.
-- Courier positions are owned by the MongoDB team's service, not SQLite. `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`, `FUTAR_POZICIO_URL`) and returns `null` when the service is unset or down.
+- Courier positions are owned by the MongoDB team's service. `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`, `FUTAR_POZICIO_URL`) and returns `null` when the service is unset or down. The SQLite `futar_pozicio` table (one row per courier, `futarID`, `frissitve`) is kept until the team decides what to do with it; Laravel neither reads nor writes it.
 - Login upgrades plaintext passwords from old exports to bcrypt on the first successful login.
 - Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused.
 
 ## Open questions
 
-- The MongoDB position API's URL and response shape (the client accepts GeoJSON or `lat`/`lng`).
+- The MongoDB position API's URL and response shape (the client accepts GeoJSON or `lat`/`lng`), and what happens to the SQLite `futar_pozicio` table.
 - Who sets `km` and `szallitasi_dij` when a customer places an order?
 - Does the Python API stay in the architecture?

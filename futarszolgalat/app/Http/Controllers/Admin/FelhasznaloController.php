@@ -3,49 +3,46 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\AdminFelhasznaloStoreRequest;
-use App\Http\Requests\AdminFelhasznaloUpdateRequest;
+use App\Http\Requests\Admin\StoreFelhasznaloRequest;
+use App\Http\Requests\Admin\UpdateFelhasznaloRequest;
 use App\Models\User;
-use App\Services\PythonApiClient;
 use Illuminate\Http\JsonResponse;
 
 class FelhasznaloController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(User::query()->latest('id')->paginate());
+        return response()->json(User::query()->withCount('rendelesek')->latest('id')->paginate());
     }
 
-    public function store(AdminFelhasznaloStoreRequest $request, PythonApiClient $pythonApi): JsonResponse
+    public function store(StoreFelhasznaloRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $pythonApi->call('felhasznalo_hozzaadasa', $data);
-        $user = User::query()->where('telszam', $data['telszam'])->firstOrFail();
-
-        return response()->json($user, 201);
+        return response()->json(User::create($request->validated()), 201);
     }
 
     public function show(User $user): JsonResponse
     {
-        return response()->json($user);
+        return response()->json($user->loadCount('rendelesek'));
     }
 
-    public function update(
-        AdminFelhasznaloUpdateRequest $request,
-        User $user,
-        PythonApiClient $pythonApi
-    ): JsonResponse {
-        $data = $request->validated();
-        $pythonApi->call('felhasznalo_modositasa', ['id' => $user->id, ...$data]);
+    public function update(UpdateFelhasznaloRequest $request, User $user): JsonResponse
+    {
+        $sajatMagat = $user->id === auth()->id();
+        abort_if($sajatMagat && $request->has('aktiv') && ! $request->boolean('aktiv'), 422, 'Az admin nem inaktivalhatja sajat magat.');
+        abort_if($sajatMagat && $request->has('isAdmin') && ! $request->boolean('isAdmin'), 422, 'Az admin nem veheti el a sajat admin jogat.');
+
+        $user->update($request->validated());
 
         return response()->json($user->refresh());
     }
 
-    public function destroy(User $user, PythonApiClient $pythonApi): JsonResponse
+    /** Users are deactivated, not deleted: their orders keep them (ON DELETE RESTRICT). */
+    public function destroy(User $user): JsonResponse
     {
-        abort_if($user->id === auth()->id(), 422, 'Az aktiv admin nem torolheti sajat magat.');
-        $pythonApi->call('felhasznalo_torlese', ['id' => $user->id]);
+        abort_if($user->id === auth()->id(), 422, 'Az admin nem inaktivalhatja sajat magat.');
 
-        return response()->json(status: 204);
+        $user->update(['aktiv' => false]);
+
+        return response()->json($user->refresh());
     }
 }

@@ -2,50 +2,69 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Futar\AllapotRequest;
 use App\Models\Futar;
 use App\Models\Rendeles;
-use App\Services\PythonApiClient;
+use App\Services\FutarPozicioClient;
+use App\Services\FutarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/** The logged-in courier (session key futar_id, set by AuthController::futarLogin). */
 class FutarController extends Controller
 {
+    public function __construct(private FutarService $futarok) {}
+
+    /** The courier's data, active order and current position from the MongoDB position service. */
+    public function en(Request $request, FutarPozicioClient $poziciok): JsonResponse
+    {
+        $futar = $this->authenticatedFutar($request)->load('aktivRendeles');
+
+        return response()->json([...$futar->toArray(), 'pozicio' => $poziciok->aktualis($futar->id)]);
+    }
+
+    /** Orders the courier can pick up right now. */
     public function rendelesek(Request $request): JsonResponse
     {
-        $futar = $this->authenticatedFutar($request);
-        $rendelesek = Rendeles::query()
-            ->whereNull('futar_id')
-            ->whereIn('statusz', ['uj', 'elerheto'])
-            ->where('km', '<=', $futar->hatosugar_km)
-            ->latest('prioritas')
+        return response()->json($this->futarok->felveheto($this->authenticatedFutar($request))->with('tetelek.termek')->paginate());
+    }
+
+    public function sajatRendelesek(Request $request): JsonResponse
+    {
+        $rendelesek = $this->authenticatedFutar($request)->rendelesek()
+            ->with('tetelek.termek')
+            ->latest('letrehozva')
             ->latest('id')
             ->paginate();
 
         return response()->json($rendelesek);
     }
 
-    public function vallal(Request $request, Rendeles $rendeles, PythonApiClient $pythonApi): JsonResponse
+    public function felvesz(Request $request, Rendeles $rendeles): JsonResponse
     {
-        $futar = $this->authenticatedFutar($request);
-        $aktiv = Rendeles::where('futar_id', $futar->id)->whereNotIn('statusz', ['teljesitve', 'lemondva'])->count();
-        abort_if($aktiv >= 5, 422, 'A futar maximum 5 aktiv rendelest vallalhat.');
-
-        $pythonApi->call('rendeles_modositasa', [
-            'id' => $rendeles->id,
-            'futar_id' => $futar->id,
-            'statusz' => 'uton',
-        ]);
-
-        return response()->json($rendeles->refresh());
+        return response()->json($this->futarok->felvesz($this->authenticatedFutar($request), $rendeles));
     }
 
-    public function sajatRendelesek(Request $request): JsonResponse
+    public function atvesz(Request $request, Rendeles $rendeles): JsonResponse
     {
-        return response()->json(Rendeles::where('futar_id', $request->session()->get('futar_id'))->latest('id')->paginate());
+        return response()->json($this->futarok->atvesz($this->authenticatedFutar($request), $rendeles));
+    }
+
+    public function kiszallit(Request $request, Rendeles $rendeles): JsonResponse
+    {
+        return response()->json($this->futarok->kiszallit($this->authenticatedFutar($request), $rendeles));
+    }
+
+    public function allapot(AllapotRequest $request): JsonResponse
+    {
+        return response()->json($this->futarok->allapotValt($this->authenticatedFutar($request), $request->validated('allapot')));
     }
 
     private function authenticatedFutar(Request $request): Futar
     {
-        return Futar::findOrFail($request->session()->get('futar_id'));
+        $futar = Futar::findOrFail($request->session()->get('futar_id'));
+        abort_unless($futar->aktiv, 403, 'A futar inaktiv.');
+
+        return $futar;
     }
 }

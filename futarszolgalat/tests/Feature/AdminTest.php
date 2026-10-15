@@ -43,6 +43,8 @@ class AdminTest extends TestCase
             ->assertJsonValidationErrors('elkeszitesi_ido');
         $this->actingAs($admin)->postJson('/api/admin/termekek', ['tipus' => 'ital', 'nev' => 'Kola', 'fogas' => 'foetel', 'ar' => 500])
             ->assertJsonValidationErrors('fogas');
+        $this->actingAs($admin)->postJson('/api/admin/termekek', ['tipus' => 'etel', 'nev' => 'Leves', 'fogas' => 'nincs_ilyen', 'ar' => 900, 'elkeszitesi_ido' => 10])
+            ->assertJsonValidationErrors('fogas');
     }
 
     public function test_ordered_product_cannot_be_deleted_only_deactivated(): void
@@ -69,35 +71,61 @@ class AdminTest extends TestCase
             ->assertJsonValidationErrors('nev');
     }
 
-    public function test_customer_with_orders_cannot_be_deleted(): void
+    public function test_deleting_a_customer_deactivates_them_and_keeps_their_orders(): void
     {
         $admin = User::factory()->admin()->create();
         $rendeles = Rendeles::factory()->create();
 
-        $this->actingAs($admin)->deleteJson("/api/admin/felhasznalok/{$rendeles->felhasznalo_id}")->assertUnprocessable();
+        $this->actingAs($admin)->deleteJson("/api/admin/felhasznalok/{$rendeles->felhasznalo_id}")
+            ->assertOk()
+            ->assertJsonPath('aktiv', false);
+        $this->assertModelExists($rendeles);
+
+        $this->postJson('/api/auth/logout');
+        $this->postJson('/api/auth/login', ['email' => $rendeles->felhasznalo->email, 'password' => 'password'])->assertUnprocessable();
     }
 
-    public function test_deleting_a_courier_keeps_the_order_history(): void
+    public function test_deleting_a_courier_deactivates_them_and_keeps_the_order_history(): void
     {
         $admin = User::factory()->admin()->create();
         $futar = Futar::factory()->create();
         $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_KISZALLITVA)->create(['futar_id' => $futar->id]);
-        $futar->poziciok()->create(['gps_x' => 47.5, 'gps_y' => 19.05, 'cim' => 'Budapest']);
 
-        $this->actingAs($admin)->deleteJson("/api/admin/futarok/{$futar->id}")->assertNoContent();
+        $this->actingAs($admin)->deleteJson("/api/admin/futarok/{$futar->id}")
+            ->assertOk()
+            ->assertJsonPath('aktiv', false);
 
-        $this->assertNull($rendeles->fresh()->futar_id);
-        $this->assertDatabaseCount('futar_pozicio', 0);
+        $this->assertSame($futar->id, $rendeles->fresh()->futar_id);
+        $this->postJson('/api/auth/futar-login', ['nev' => $futar->nev, 'telszam' => $futar->telszam])->assertUnprocessable();
     }
 
-    public function test_drone_courier_cannot_carry_a_person(): void
+    public function test_courier_with_an_active_order_cannot_be_deactivated(): void
+    {
+        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_UTON)->create();
+
+        $this->actingAs(User::factory()->admin()->create())->deleteJson("/api/admin/futarok/{$rendeles->futar_id}")->assertUnprocessable();
+    }
+
+    public function test_there_are_no_drone_couriers(): void
     {
         $this->actingAs(User::factory()->admin()->create())->postJson('/api/admin/futarok', [
             'nev' => 'Dron 1',
             'telszam' => '+36201234567',
             'jarmu' => 'dron',
-            'ember' => true,
             'hatosugar_km' => 8,
-        ])->assertJsonValidationErrors('ember');
+        ])->assertJsonValidationErrors('jarmu');
+    }
+
+    public function test_admin_marks_an_accepted_order_as_being_prepared(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $elfogadott = Rendeles::factory()->statusz(Rendeles::STATUSZ_ELFOGADVA)->create();
+        $uj = Rendeles::factory()->create();
+
+        $this->actingAs($admin)->postJson("/api/admin/rendelesek/{$elfogadott->id}/keszul")
+            ->assertOk()
+            ->assertJsonPath('statusz', Rendeles::STATUSZ_KESZUL);
+        $this->actingAs($admin)->postJson("/api/admin/rendelesek/{$uj->id}/keszul")->assertUnprocessable();
+        $this->actingAs(User::factory()->create())->postJson("/api/admin/rendelesek/{$elfogadott->id}/keszul")->assertForbidden();
     }
 }

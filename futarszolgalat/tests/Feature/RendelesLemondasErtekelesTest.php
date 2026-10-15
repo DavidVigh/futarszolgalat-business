@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Futar;
 use App\Models\Rendeles;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,8 +24,7 @@ class RendelesLemondasErtekelesTest extends TestCase
     public function test_picked_up_order_cannot_be_cancelled(): void
     {
         $vasarlo = User::factory()->create();
-        $futar = Futar::factory()->allapot(Futar::ALLAPOT_UTON)->create();
-        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_FELVEVE)->create(['felhasznalo_id' => $vasarlo->id, 'futar_id' => $futar->id]);
+        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_ELFOGADVA)->create(['felhasznalo_id' => $vasarlo->id]);
 
         $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$rendeles->id}/lemondas")->assertUnprocessable();
     }
@@ -59,5 +57,21 @@ class RendelesLemondasErtekelesTest extends TestCase
         $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$rendeles->id}/ertekeles", ['ertekeles' => 4])->assertUnprocessable();
         $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$rendeles->id}/ertekeles", ['ertekeles' => 6])
             ->assertJsonValidationErrors('ertekeles');
+    }
+
+    public function test_tip_is_given_after_delivery_once_and_only_by_card(): void
+    {
+        $vasarlo = User::factory()->create();
+        $kartyas = Rendeles::factory()->statusz(Rendeles::STATUSZ_KISZALLITVA)->create(['felhasznalo_id' => $vasarlo->id]);
+        $keszpenzes = Rendeles::factory()->keszpenzes()->statusz(Rendeles::STATUSZ_KISZALLITVA)->create(['felhasznalo_id' => $vasarlo->id]);
+        $uton = Rendeles::factory()->statusz(Rendeles::STATUSZ_UTON)->create(['felhasznalo_id' => $vasarlo->id]);
+
+        $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$kartyas->id}/jatt", ['jatt' => 500])
+            ->assertOk()
+            ->assertJsonPath('jatt', 500);
+        $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$kartyas->id}/jatt", ['jatt' => 200])->assertUnprocessable();
+        $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$keszpenzes->id}/jatt", ['jatt' => 500])->assertUnprocessable();
+        $this->actingAs($vasarlo)->postJson("/api/rendelesek/{$uton->id}/jatt", ['jatt' => 500])->assertUnprocessable();
+        $this->actingAs(User::factory()->create())->postJson("/api/rendelesek/{$kartyas->id}/jatt", ['jatt' => 500])->assertForbidden();
     }
 }

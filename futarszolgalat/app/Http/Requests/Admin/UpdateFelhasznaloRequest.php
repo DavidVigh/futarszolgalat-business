@@ -16,6 +16,7 @@ class UpdateFelhasznaloRequest extends FormRequest
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('felhasznalo', 'email')->ignore($this->route('user'))],
             'password' => ['sometimes', 'required', 'string', 'min:8', 'confirmed'],
             'isAdmin' => ['sometimes', 'boolean'],
+            'aktiv' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Futar;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -53,6 +55,19 @@ class AuthTest extends TestCase
             'password' => 'titkos123',
             'password_confirmation' => 'titkos123',
         ])->assertJsonValidationErrors('email');
+    }
+
+    public function test_plaintext_password_from_an_old_export_is_hashed_on_first_login(): void
+    {
+        $user = User::factory()->create(['email' => 'regi@example.com']);
+        DB::table('felhasznalo')->where('id', $user->id)->update(['password' => 'regijelszo']);
+
+        $this->postJson('/api/auth/login', ['email' => 'regi@example.com', 'password' => 'rossz'])->assertUnprocessable();
+        $this->postJson('/api/auth/login', ['email' => 'regi@example.com', 'password' => 'regijelszo'])->assertOk();
+
+        $tarolt = DB::table('felhasznalo')->where('id', $user->id)->value('password');
+        $this->assertNotSame('regijelszo', $tarolt);
+        $this->assertTrue(Hash::check('regijelszo', $tarolt));
     }
 
     public function test_courier_logs_in_with_name_and_phone(): void

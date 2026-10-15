@@ -21,7 +21,8 @@ class RendelesLeadasTest extends TestCase
         $response = $this->actingAs($vasarlo)->postJson('/api/rendelesek', [
             'km' => 4,
             'fizetesi_mod' => 'kartya',
-            'jatt' => 300,
+            'szamla' => true,
+            'szamlazasi_adat' => ['adoszam' => '12345678-1-42'],
             'tetelek' => [
                 ['termek_id' => $leves->id, 'db' => 1],
                 ['termek_id' => $ital->id, 'db' => 2],
@@ -33,7 +34,10 @@ class RendelesLeadasTest extends TestCase
             ->assertJsonPath('statusz', Rendeles::STATUSZ_UJ)
             ->assertJsonPath('futar_id', null)
             ->assertJsonPath('cim', 'Budapest, Fo utca 1.')
-            ->assertJsonCount(2, 'tetelek');
+            ->assertJsonCount(2, 'tetelek')
+            ->assertJsonPath('szamlazasi_adat.nev', $vasarlo->nev)
+            ->assertJsonPath('szamlazasi_adat.cim', 'Budapest, Fo utca 1.')
+            ->assertJsonPath('szamlazasi_adat.adoszam', '12345678-1-42');
         $this->assertDatabaseHas('rendeles_tetel', ['termek_id' => $leves->id, 'db' => 2, 'egysegar' => 2400]);
 
         $leves->update(['ar' => 9999]);
@@ -58,16 +62,17 @@ class RendelesLeadasTest extends TestCase
         $this->assertDatabaseCount('rendeles', 0);
     }
 
-    public function test_tip_is_only_allowed_with_card_payment(): void
+    public function test_tip_and_billing_details_are_rejected_when_they_cannot_apply(): void
     {
         $termek = Termek::factory()->create();
+        $alap = ['km' => 4, 'fizetesi_mod' => 'kartya', 'tetelek' => [['termek_id' => $termek->id, 'db' => 1]]];
 
-        $this->actingAs(User::factory()->create())->postJson('/api/rendelesek', [
-            'km' => 4,
-            'fizetesi_mod' => 'keszpenz',
-            'jatt' => 500,
-            'tetelek' => [['termek_id' => $termek->id, 'db' => 1]],
-        ])->assertUnprocessable()->assertJsonValidationErrors('jatt');
+        $this->actingAs(User::factory()->create())->postJson('/api/rendelesek', [...$alap, 'jatt' => 500])
+            ->assertJsonValidationErrors('jatt');
+        $this->actingAs(User::factory()->create())->postJson('/api/rendelesek', [...$alap, 'szamlazasi_adat' => ['nev' => 'Ceg Kft.']])
+            ->assertJsonValidationErrors('szamlazasi_adat');
+        $this->actingAs(User::factory()->create())->postJson('/api/rendelesek', [...$alap, 'szamla' => true, 'szamlazasi_adat' => ['adoszam' => '123']])
+            ->assertJsonValidationErrors('szamlazasi_adat.adoszam');
     }
 
     public function test_guest_cannot_order(): void

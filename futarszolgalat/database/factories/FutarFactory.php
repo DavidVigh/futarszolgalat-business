@@ -19,15 +19,9 @@ class FutarFactory extends Factory
             'nev' => fake()->name(),
             'telszam' => '+3620'.fake()->unique()->numerify('#######'),
             'jarmu' => 'auto',
-            'ember' => true,
             'allapot' => Futar::ALLAPOT_ELERHETO,
             'hatosugar_km' => 20,
         ];
-    }
-
-    public function dron(): static
-    {
-        return $this->state(fn (array $attributes) => ['jarmu' => 'dron', 'ember' => false]);
     }
 
     public function allapot(string $allapot): static

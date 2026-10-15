@@ -8,15 +8,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Rendeles extends Model
 {
     /** @use HasFactory<RendelesFactory> */
     use HasFactory;
 
+    /** Not yet placed; the API does not create carts, but the DB allows them. */
+    public const STATUSZ_KOSAR = 'kosar';
+
     public const STATUSZ_UJ = 'új';
 
-    public const STATUSZ_FELVEVE = 'felvéve';
+    /** A courier picked up the order. */
+    public const STATUSZ_ELFOGADVA = 'elfogadva';
+
+    /** The kitchen is preparing the order. */
+    public const STATUSZ_KESZUL = 'készül';
 
     public const STATUSZ_UTON = 'úton';
 
@@ -24,8 +32,14 @@ class Rendeles extends Model
 
     public const STATUSZ_LEMONDVA = 'lemondva';
 
+    /** Every value allowed by the rendeles.statusz CHECK constraint. */
+    public const STATUSZOK = [
+        self::STATUSZ_KOSAR, self::STATUSZ_UJ, self::STATUSZ_ELFOGADVA, self::STATUSZ_KESZUL,
+        self::STATUSZ_UTON, self::STATUSZ_KISZALLITVA, self::STATUSZ_LEMONDVA,
+    ];
+
     /** Statuses in which the order is being handled by a courier. */
-    public const AKTIV_STATUSZOK = [self::STATUSZ_FELVEVE, self::STATUSZ_UTON];
+    public const AKTIV_STATUSZOK = [self::STATUSZ_ELFOGADVA, self::STATUSZ_KESZUL, self::STATUSZ_UTON];
 
     public const FIZETESI_MODOK = ['keszpenz', 'kartya'];
 
@@ -33,7 +47,7 @@ class Rendeles extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['felhasznalo_id', 'futar_id', 'cim', 'prioritas', 'fizetesi_mod', 'jatt', 'szamla', 'km', 'statusz', 'ertekeles'];
+    protected $fillable = ['felhasznalo_id', 'futar_id', 'cim', 'prioritas', 'fizetesi_mod', 'jatt', 'szamla', 'km', 'szallitasi_dij', 'statusz', 'ertekeles'];
 
     protected function casts(): array
     {
@@ -44,8 +58,10 @@ class Rendeles extends Model
             'szamla' => 'boolean',
             'jatt' => 'integer',
             'km' => 'integer',
+            'szallitasi_dij' => 'integer',
             'ertekeles' => 'integer',
             'letrehozva' => 'datetime',
+            'kiszallitva_ido' => 'datetime',
         ];
     }
 
@@ -62,6 +78,11 @@ class Rendeles extends Model
     public function tetelek(): HasMany
     {
         return $this->hasMany(RendelesTetel::class, 'rendeles_id');
+    }
+
+    public function szamlazasiAdat(): HasOne
+    {
+        return $this->hasOne(SzamlazasiAdat::class, 'rendeles_id');
     }
 
     public function termekek(): BelongsToMany

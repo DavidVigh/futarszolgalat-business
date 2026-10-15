@@ -24,7 +24,7 @@ class TermekIndexRequest extends FormRequest
             'tipus' => ['sometimes', 'array'],
             'tipus.*' => [Rule::in(Termek::TIPUSOK)],
             'fogas' => ['sometimes', 'array'],
-            'fogas.*' => [Rule::in(Termek::FOGASOK)],
+            'fogas.*' => ['string', 'exists:fogas,kod'],
             'allergen_nelkul' => ['sometimes', 'array'],
             'allergen_nelkul.*' => ['integer', 'exists:allergen,kod'],
             'kereses' => ['sometimes', 'nullable', 'string', 'max:100'],

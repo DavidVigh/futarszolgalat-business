@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         Termek::factory(4)->ital()->create();
 
         Futar::factory(4)->create();
-        Futar::factory()->dron()->create();
+        Futar::factory()->create(['jarmu' => 'bicikli', 'hatosugar_km' => 6]);
 
         $vasarlok->each(fn (User $vasarlo) => Rendeles::factory(2)->create(['felhasznalo_id' => $vasarlo->id, 'cim' => $vasarlo->cim]));
     }

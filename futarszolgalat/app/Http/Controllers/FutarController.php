@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Futar\AllapotRequest;
-use App\Http\Requests\Futar\PozicioRequest;
 use App\Models\Futar;
 use App\Models\Rendeles;
+use App\Services\FutarPozicioClient;
 use App\Services\FutarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +15,12 @@ class FutarController extends Controller
 {
     public function __construct(private FutarService $futarok) {}
 
-    public function en(Request $request): JsonResponse
+    /** The courier's data, active order and current position from the MongoDB position service. */
+    public function en(Request $request, FutarPozicioClient $poziciok): JsonResponse
     {
-        return response()->json($this->authenticatedFutar($request)->load(['aktivRendeles', 'aktualisPozicio']));
+        $futar = $this->authenticatedFutar($request)->load('aktivRendeles');
+
+        return response()->json([...$futar->toArray(), 'pozicio' => $poziciok->aktualis($futar->id)]);
     }
 
     /** Orders the courier can pick up right now. */
@@ -57,13 +60,11 @@ class FutarController extends Controller
         return response()->json($this->futarok->allapotValt($this->authenticatedFutar($request), $request->validated('allapot')));
     }
 
-    public function pozicio(PozicioRequest $request): JsonResponse
-    {
-        return response()->json($this->futarok->pozicioRogzit($this->authenticatedFutar($request), $request->validated()), 201);
-    }
-
     private function authenticatedFutar(Request $request): Futar
     {
-        return Futar::findOrFail($request->session()->get('futar_id'));
+        $futar = Futar::findOrFail($request->session()->get('futar_id'));
+        abort_unless($futar->aktiv, 403, 'A futar inaktiv.');
+
+        return $futar;
     }
 }

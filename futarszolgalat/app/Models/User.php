@@ -24,7 +24,11 @@ class User extends Authenticatable
         'email',
         'password',
         'isAdmin',
+        'aktiv',
     ];
+
+    /** isAdmin has no DB default; users are deactivated instead of deleted. */
+    protected $attributes = ['isAdmin' => false, 'aktiv' => true];
 
     protected $hidden = ['password'];
 
@@ -33,6 +37,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'isAdmin' => 'boolean',
+            'aktiv' => 'boolean',
         ];
     }
 

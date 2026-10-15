@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Futar;
 use App\Models\Rendeles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class FutarFolyamatTest extends TestCase
@@ -18,7 +19,7 @@ class FutarFolyamatTest extends TestCase
 
         $this->futarkent($futar)->postJson("/api/futar/rendelesek/{$rendeles->id}/felvetel")
             ->assertOk()
-            ->assertJsonPath('statusz', Rendeles::STATUSZ_FELVEVE)
+            ->assertJsonPath('statusz', Rendeles::STATUSZ_ELFOGADVA)
             ->assertJsonPath('futar_id', $futar->id);
         $this->assertSame(Futar::ALLAPOT_UTON, $futar->fresh()->allapot);
 
@@ -30,6 +31,16 @@ class FutarFolyamatTest extends TestCase
             ->assertOk()
             ->assertJsonPath('statusz', Rendeles::STATUSZ_KISZALLITVA);
         $this->assertSame(Futar::ALLAPOT_ELERHETO, $futar->fresh()->allapot);
+        $this->assertNotNull($rendeles->fresh()->kiszallitva_ido);
+    }
+
+    public function test_courier_collects_an_order_the_kitchen_is_preparing(): void
+    {
+        $rendeles = Rendeles::factory()->statusz(Rendeles::STATUSZ_KESZUL)->create();
+
+        $this->futarkent($rendeles->futar)->postJson("/api/futar/rendelesek/{$rendeles->id}/atvetel")
+            ->assertOk()
+            ->assertJsonPath('statusz', Rendeles::STATUSZ_UTON);
     }
 
     public function test_an_order_cannot_be_picked_up_twice(): void
@@ -73,17 +84,11 @@ class FutarFolyamatTest extends TestCase
         $this->assertSame(Futar::ALLAPOT_ELERHETO, $futar->fresh()->allapot);
     }
 
-    public function test_drone_cannot_take_cash_order(): void
+    public function test_inactive_courier_is_locked_out(): void
     {
-        $dron = Futar::factory()->dron()->create();
-        $keszpenzes = Rendeles::factory()->keszpenzes()->create();
-        $kartyas = Rendeles::factory()->create();
+        $futar = Futar::factory()->create(['aktiv' => false]);
 
-        $this->futarkent($dron)->getJson('/api/futar/rendelesek')
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $kartyas->id);
-        $this->futarkent($dron)->postJson("/api/futar/rendelesek/{$keszpenzes->id}/felvetel")->assertUnprocessable();
+        $this->futarkent($futar)->getJson('/api/futar/rendelesek')->assertForbidden();
     }
 
     public function test_available_orders_list_priority_first_within_range(): void
@@ -127,17 +132,32 @@ class FutarFolyamatTest extends TestCase
         $this->futarkent($uton)->patchJson('/api/futar/allapot', ['allapot' => 'szunet'])->assertUnprocessable();
     }
 
-    public function test_only_courier_on_the_road_records_position(): void
+    public function test_position_comes_from_the_mongodb_position_service(): void
     {
-        $pozicio = ['gps_x' => 47.4979, 'gps_y' => 19.0402, 'cim' => 'Budapest, Deak Ferenc ter'];
+        config(['futar-pozicio.base_url' => 'https://pozicio.test']);
+        $futar = Futar::factory()->create();
+        Http::fake([
+            "pozicio.test/futarok/{$futar->id}/pozicio" => Http::response([
+                'location' => ['type' => 'Point', 'coordinates' => [19.0402, 47.4979]],
+                'updatedAt' => '2026-10-15T12:00:00Z',
+            ]),
+        ]);
 
-        $this->futarkent(Futar::factory()->create())->postJson('/api/futar/pozicio', $pozicio)->assertUnprocessable();
-
-        $uton = Futar::factory()->allapot(Futar::ALLAPOT_UTON)->create();
-        $this->futarkent($uton)->postJson('/api/futar/pozicio', $pozicio)->assertCreated();
-        $this->futarkent($uton)->getJson('/api/futar/en')
+        $this->futarkent($futar)->getJson('/api/futar/en')
             ->assertOk()
-            ->assertJsonPath('aktualis_pozicio.cim', 'Budapest, Deak Ferenc ter');
+            ->assertJsonPath('pozicio.lat', 47.4979)
+            ->assertJsonPath('pozicio.lng', 19.0402)
+            ->assertJsonPath('pozicio.frissitve', '2026-10-15T12:00:00Z');
+    }
+
+    public function test_position_is_null_when_the_service_is_unavailable(): void
+    {
+        config(['futar-pozicio.base_url' => 'https://pozicio.test']);
+        Http::fake(['pozicio.test/*' => Http::response(status: 503)]);
+
+        $this->futarkent(Futar::factory()->create())->getJson('/api/futar/en')
+            ->assertOk()
+            ->assertJsonPath('pozicio', null);
     }
 
     public function test_guest_is_not_a_courier(): void

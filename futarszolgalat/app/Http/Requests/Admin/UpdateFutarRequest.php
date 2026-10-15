@@ -14,14 +14,12 @@ class UpdateFutarRequest extends FormRequest
 {
     public function rules(): array
     {
-        $jarmu = $this->input('jarmu', $this->route('futar')?->jarmu);
-
         return [
             'nev' => ['sometimes', 'required', 'string', 'max:255'],
             'telszam' => ['sometimes', 'required', 'string', 'regex:/^(\+36|06)[0-9]{8,9}$/', Rule::unique('futar', 'telszam')->ignore($this->route('futar'))],
             'jarmu' => ['sometimes', 'required', Rule::in(Futar::JARMUVEK)],
-            'ember' => ['sometimes', 'boolean', Rule::when($jarmu === 'dron', ['declined'])],
             'hatosugar_km' => ['sometimes', 'required', 'integer', 'min:1'],
+            'aktiv' => ['sometimes', 'boolean'],
         ];
     }
 }

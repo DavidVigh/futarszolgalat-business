@@ -13,7 +13,8 @@ class Futar extends Model
     /** @use HasFactory<FutarFactory> */
     use HasFactory;
 
-    public const JARMUVEK = ['auto', 'dron', 'bicikli', 'motor'];
+    /** There are no drone deliveries. */
+    public const JARMUVEK = ['auto', 'bicikli', 'motor'];
 
     public const ALLAPOT_ELERHETO = 'elerheto';
 
@@ -23,29 +24,16 @@ class Futar extends Model
 
     protected $table = 'futar';
 
+    /** Couriers are deactivated instead of deleted: orders keep them (ON DELETE RESTRICT). */
+    protected $attributes = ['aktiv' => true];
+
     public $timestamps = false;
 
-    protected $fillable = ['nev', 'telszam', 'jarmu', 'ember', 'allapot', 'hatosugar_km'];
+    protected $fillable = ['nev', 'telszam', 'jarmu', 'allapot', 'hatosugar_km', 'aktiv'];
 
     protected function casts(): array
     {
-        return ['ember' => 'boolean', 'hatosugar_km' => 'integer'];
-    }
-
-    public function isDron(): bool
-    {
-        return $this->jarmu === 'dron';
-    }
-
-    public function poziciok(): HasMany
-    {
-        return $this->hasMany(FutarPozicio::class, 'futarID');
-    }
-
-    /** The courier's current position is always the most recently recorded one. */
-    public function aktualisPozicio(): HasOne
-    {
-        return $this->hasOne(FutarPozicio::class, 'futarID')->ofMany(['rogzitve' => 'max', 'id' => 'max']);
+        return ['hatosugar_km' => 'integer', 'aktiv' => 'boolean'];
     }
 
     public function rendelesek(): HasMany

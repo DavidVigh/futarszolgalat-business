@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ErtekelesRequest;
+use App\Http\Requests\JattRequest;
 use App\Http\Requests\StoreRendelesRequest;
 use App\Models\Rendeles;
 use App\Services\RendelesService;
@@ -33,7 +34,7 @@ class RendelesController extends Controller
     {
         Gate::authorize('view', $rendeles);
 
-        return response()->json($rendeles->load(['tetelek.termek', 'futar']));
+        return response()->json($rendeles->load(['tetelek.termek', 'futar', 'szamlazasiAdat']));
     }
 
     public function lemond(Rendeles $rendeles, RendelesService $rendelesek): JsonResponse
@@ -48,5 +49,12 @@ class RendelesController extends Controller
         Gate::authorize('update', $rendeles);
 
         return response()->json($rendelesek->ertekel($rendeles, $request->integer('ertekeles')));
+    }
+
+    public function jatt(JattRequest $request, Rendeles $rendeles, RendelesService $rendelesek): JsonResponse
+    {
+        Gate::authorize('update', $rendeles);
+
+        return response()->json($rendelesek->jattot($rendeles, $request->integer('jatt')));
     }
 }

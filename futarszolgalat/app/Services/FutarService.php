@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\UzletiSzabalyException;
 use App\Models\Futar;
-use App\Models\FutarPozicio;
 use App\Models\Rendeles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +21,6 @@ class FutarService
             ->where('statusz', Rendeles::STATUSZ_UJ)
             ->whereNull('futar_id')
             ->where('km', '<=', $futar->hatosugar_km)
-            ->when($futar->isDron(), fn (Builder $query) => $query->where('fizetesi_mod', '!=', 'keszpenz'))
             ->orderByDesc('prioritas')
             ->orderBy('letrehozva')
             ->orderBy('id');
@@ -38,17 +36,18 @@ class FutarService
             $futar->refresh();
             $rendeles->refresh();
 
+            if (! $futar->aktiv) {
+                throw new UzletiSzabalyException('Inaktiv futar nem vehet fel rendelest.');
+            }
             if ($rendeles->km > $futar->hatosugar_km) {
                 throw new UzletiSzabalyException('A rendeles a futar hatosugaran kivul esik.');
             }
-            if ($futar->isDron() && $rendeles->fizetesi_mod === 'keszpenz') {
-                throw new UzletiSzabalyException('Dron nem vihet keszpenzes rendelest.');
-            }
 
-            // Only an available courier can pick up, and this also guarantees one active order per courier.
+            // Only an available courier without an active order can pick up (one active order per courier).
             $futarValtozott = Futar::query()
                 ->whereKey($futar->id)
                 ->where('allapot', Futar::ALLAPOT_ELERHETO)
+                ->whereDoesntHave('aktivRendeles')
                 ->update(['allapot' => Futar::ALLAPOT_UTON]);
             if ($futarValtozott === 0) {
                 throw new UzletiSzabalyException('Csak elerheto, aktiv rendeles nelkuli futar vehet fel rendelest.');
@@ -59,7 +58,7 @@ class FutarService
                 ->whereKey($rendeles->id)
                 ->whereNull('futar_id')
                 ->where('statusz', Rendeles::STATUSZ_UJ)
-                ->update(['futar_id' => $futar->id, 'statusz' => Rendeles::STATUSZ_FELVEVE]);
+                ->update(['futar_id' => $futar->id, 'statusz' => Rendeles::STATUSZ_ELFOGADVA]);
             if ($rendelesValtozott === 0) {
                 throw new UzletiSzabalyException('A rendelest mar felvettek, vagy nem uj statuszu.');
             }
@@ -68,13 +67,13 @@ class FutarService
         });
     }
 
-    /** felvéve -> úton (BL 10). */
+    /** The courier collects the order from the kitchen: elfogadva or készül -> úton. */
     public function atvesz(Futar $futar, Rendeles $rendeles): Rendeles
     {
         $modositott = Rendeles::query()
             ->whereKey($rendeles->id)
             ->where('futar_id', $futar->id)
-            ->where('statusz', Rendeles::STATUSZ_FELVEVE)
+            ->whereIn('statusz', [Rendeles::STATUSZ_ELFOGADVA, Rendeles::STATUSZ_KESZUL])
             ->update(['statusz' => Rendeles::STATUSZ_UTON]);
 
         if ($modositott === 0) {
@@ -119,6 +118,7 @@ class FutarService
         $modositott = Futar::query()
             ->whereKey($futar->id)
             ->where('allapot', $honnan)
+            ->when($ujAllapot === Futar::ALLAPOT_SZUNET, fn (Builder $query) => $query->whereDoesntHave('aktivRendeles'))
             ->update(['allapot' => $ujAllapot]);
 
         if ($modositott === 0) {
@@ -126,19 +126,5 @@ class FutarService
         }
 
         return $futar->fresh();
-    }
-
-    /**
-     * Only a courier on the road records positions (BL 4).
-     *
-     * @param  array{gps_x: float, gps_y: float, cim: string}  $adatok
-     */
-    public function pozicioRogzit(Futar $futar, array $adatok): FutarPozicio
-    {
-        if ($futar->fresh()->allapot !== Futar::ALLAPOT_UTON) {
-            throw new UzletiSzabalyException('A poziciot csak uton levo futar frissitheti.');
-        }
-
-        return $futar->poziciok()->create($adatok)->fresh();
     }
 }

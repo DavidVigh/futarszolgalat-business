@@ -32,14 +32,13 @@ class FelhasznaloController extends Controller
         return response()->json($user->refresh());
     }
 
+    /** Users are deactivated, not deleted: their orders keep them (ON DELETE RESTRICT). */
     public function destroy(User $user): JsonResponse
     {
-        abort_if($user->id === auth()->id(), 422, 'Az aktiv admin nem torolheti sajat magat.');
-        // The DB keeps order history: rendeles.felhasznalo_id is ON DELETE RESTRICT
-        abort_if($user->rendelesek()->exists(), 422, 'Rendelessel rendelkezo felhasznalo nem torolheto.');
+        abort_if($user->id === auth()->id(), 422, 'Az admin nem inaktivalhatja sajat magat.');
 
-        $user->delete();
+        $user->update(['aktiv' => false]);
 
-        return response()->json(status: 204);
+        return response()->json($user->refresh());
     }
 }

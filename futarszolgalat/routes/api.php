@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RendelesController as AdminRendelesController;
 use App\Http\Controllers\Admin\TermekController as AdminTermekController;
 use App\Http\Controllers\AllergenController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\FogasController;
 use App\Http\Controllers\FutarController;
 use App\Http\Controllers\RendelesController;
 use App\Http\Controllers\RendelesTetelController;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/termekek', [TermekController::class, 'index']);
 Route::get('/termekek/{termek}', [TermekController::class, 'show']);
 Route::get('/allergenek', [AllergenController::class, 'index']);
+Route::get('/fogasok', [FogasController::class, 'index']);
 
 // Session-based auth: every route that logs in or needs a logged-in user or courier
 Route::middleware('web')->group(function (): void {
@@ -30,6 +32,7 @@ Route::middleware('web')->group(function (): void {
         Route::get('/rendelesek/{rendeles}', [RendelesController::class, 'show']);
         Route::post('/rendelesek/{rendeles}/lemondas', [RendelesController::class, 'lemond']);
         Route::post('/rendelesek/{rendeles}/ertekeles', [RendelesController::class, 'ertekel']);
+        Route::post('/rendelesek/{rendeles}/jatt', [RendelesController::class, 'jatt']);
 
         Route::post('/rendelesek/{rendeles}/tetelek', [RendelesTetelController::class, 'store']);
         Route::patch('/rendelesek/{rendeles}/tetelek/{termek}', [RendelesTetelController::class, 'update']);
@@ -48,6 +51,7 @@ Route::middleware('web')->group(function (): void {
         Route::apiResource('rendelesek', AdminRendelesController::class)
             ->only(['index', 'show'])
             ->parameters(['rendelesek' => 'rendeles']);
+        Route::post('rendelesek/{rendeles}/keszul', [AdminRendelesController::class, 'keszul']);
     });
 
     Route::middleware('futar')->prefix('futar')->group(function (): void {
@@ -58,6 +62,5 @@ Route::middleware('web')->group(function (): void {
         Route::post('/rendelesek/{rendeles}/atvetel', [FutarController::class, 'atvesz']);
         Route::post('/rendelesek/{rendeles}/kiszallitas', [FutarController::class, 'kiszallit']);
         Route::patch('/allapot', [FutarController::class, 'allapot']);
-        Route::post('/pozicio', [FutarController::class, 'pozicio']);
     });
 });

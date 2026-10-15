@@ -153,22 +153,27 @@ Kept outside the `<laravel-boost-guidelines>` block so `boost:update` does not o
 
 ## Source of truth
 
-- Business rules come from the team spec `Futarszolgalat_Business_Logic.pdf` (roles, validation, state machines, transactions, required DB changes in chapter 12). Implement against it.
-- The DB team owns the schema. The code targets `etelrendeles_javitott.db.sql` (2026-10-02): the team's export `etelrendelesvegleges.db.sql` plus the spec's chapter 12 changes. A schema review was sent to the DB team: https://claude.ai/code/artifact/fa5ce2da-a515-42d9-8870-6ad2a85e39eb
+- The database is the DB team's final export (`futarszolgalat.db.sql`, 2026-10-15) with our fix script applied (`futarszolgalat_javitas.sql` -> `futarszolgalat_javitott.db`, sent back to the DB team). Where it differs from `Futarszolgalat_Business_Logic.pdf`, the database wins.
+- Other business rules (validation, transactions, ownership) still come from the spec.
 
 ## Database
 
-- The schema comes from the SQL export, not from Laravel migrations. `database/schema/sqlite-schema.sql` holds it without data (plus Laravel's `migrations` table); `RefreshDatabase` and `php artisan migrate` load it. Update it whenever the DB team ships a new export.
-- Tables are Hungarian, singular and have no timestamps: `felhasznalo`, `futar`, `futar_pozicio`, `rendeles`, `rendeles_tetel`, `termek`, `allergen`, `termek_allergen`.
-- `felhasznalo` uses `email` + `password` for login and `isAdmin` for the admin role.
-- `rendeles.statusz` values are accented: `új`, `felvéve`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZ_*` constants instead of string literals. Courier states: `elerheto`, `uton`, `szunet`.
+- The schema comes from the SQL export, not from Laravel migrations. `database/schema/sqlite-schema.sql` holds it without data, plus Laravel's `migrations` table and the `fogas` lookup rows; `RefreshDatabase` and `php artisan migrate` load it. Regenerate it whenever the DB team ships a new export.
+- Tables are Hungarian, singular and have no timestamps: `felhasznalo`, `futar`, `rendeles`, `rendeles_tetel`, `szamlazasi_adat`, `termek`, `fogas`, `allergen`, `termek_allergen`.
+- `rendeles.statusz`: `kosar`, `új`, `elfogadva`, `készül`, `úton`, `kiszállítva`, `lemondva`. Use the `Rendeles::STATUSZ_*` constants. Flow: courier picks up (`új` -> `elfogadva`), admin/kitchen marks `készül`, courier collects (`elfogadva`/`készül` -> `úton`) and delivers. The API does not create `kosar` orders.
+- The DB enforces a lot itself: CHECKs (e.g. `jatt` only on delivered card orders, courier required outside `kosar`/`új`/`lemondva`), triggers (courier active/range checks, `egysegar` and `kiszallitva_ido` filled in), and `ON DELETE RESTRICT` — users and couriers are deactivated (`aktiv = 0`), never deleted.
+- `termek.fogas` + `tipus` must match a `fogas` row.
+- There are no drones: `futar.jarmu` is `auto`, `bicikli` or `motor`.
 
 ## Architecture
 
-- Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs per spec chapter 11); rule violations throw `App\Exceptions\UzletiSzabalyException`. Ownership checks are in `App\Policies\RendelesPolicy`.
-- Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused — agree with the team before routing writes through the Python API again.
+- Business logic lives in `App\Services\RendelesService` and `App\Services\FutarService` (transactions, conditional UPDATEs); rule violations throw `App\Exceptions\UzletiSzabalyException` (422). Ownership checks are in `App\Policies\RendelesPolicy`.
+- Courier positions are owned by the MongoDB team's service, not SQLite. `App\Services\FutarPozicioClient` reads them (`config/futar-pozicio.php`, `FUTAR_POZICIO_URL`) and returns `null` when the service is unset or down.
+- Login upgrades plaintext passwords from old exports to bcrypt on the first successful login.
+- Laravel writes the tables directly. `App\Services\PythonApiClient` is kept but unused.
 
 ## Open questions
 
-- Who sets `km` when a customer places an order?
-- Does the Python API stay in the architecture, and if so, which writes go through it?
+- The MongoDB position API's URL and response shape (the client accepts GeoJSON or `lat`/`lng`).
+- Who sets `km` and `szallitasi_dij` when a customer places an order?
+- Does the Python API stay in the architecture?

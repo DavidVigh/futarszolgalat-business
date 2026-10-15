@@ -13,9 +13,10 @@ use Illuminate\Support\Facades\DB;
 class RendelesService
 {
     /**
-     * Create an order and all of its items in one transaction (BL 5, 11).
+     * Create an order, its items and its billing details in one transaction (BL 5, 11).
+     * A tip can only be given after delivery (DB: ck_rendeles_jatt), see jattot().
      *
-     * @param  array{cim?: string|null, km: int, prioritas?: bool, fizetesi_mod: string, jatt?: int|null, szamla?: bool, tetelek: list<array{termek_id: int, db: int}>}  $adatok
+     * @param  array{cim?: string|null, km: int, prioritas?: bool, fizetesi_mod: string, szamla?: bool, szamlazasi_adat?: array{nev?: string, cim?: string, adoszam?: string|null}, tetelek: list<array{termek_id: int, db: int}>}  $adatok
      */
     public function letrehoz(User $felhasznalo, array $adatok): Rendeles
     {
@@ -26,7 +27,7 @@ class RendelesService
                 'cim' => $adatok['cim'] ?? $felhasznalo->cim,
                 'prioritas' => $adatok['prioritas'] ?? false,
                 'fizetesi_mod' => $adatok['fizetesi_mod'],
-                'jatt' => $adatok['jatt'] ?? null,
+                'jatt' => null,
                 'szamla' => $adatok['szamla'] ?? false,
                 'km' => $adatok['km'],
                 'statusz' => Rendeles::STATUSZ_UJ,
@@ -51,7 +52,16 @@ class RendelesService
                 ]);
             }
 
-            return $rendeles->fresh(['tetelek.termek']);
+            if ($rendeles->szamla) {
+                // Billing name and address default to the customer's own
+                $rendeles->szamlazasiAdat()->create([
+                    'nev' => $adatok['szamlazasi_adat']['nev'] ?? $felhasznalo->nev,
+                    'cim' => $adatok['szamlazasi_adat']['cim'] ?? $felhasznalo->cim,
+                    'adoszam' => $adatok['szamlazasi_adat']['adoszam'] ?? null,
+                ]);
+            }
+
+            return $rendeles->fresh(['tetelek.termek', 'szamlazasiAdat']);
         });
     }
 
@@ -141,6 +151,38 @@ class RendelesService
 
         if ($modositott === 0) {
             throw new UzletiSzabalyException('Csak kiszallitott, meg nem ertekelt rendeles ertekelheto.');
+        }
+
+        return $rendeles->fresh();
+    }
+
+    /** A delivered, card-paid order can get one tip (BL 5, DB: ck_rendeles_jatt). */
+    public function jattot(Rendeles $rendeles, int $jatt): Rendeles
+    {
+        $modositott = Rendeles::query()
+            ->whereKey($rendeles->id)
+            ->where('statusz', Rendeles::STATUSZ_KISZALLITVA)
+            ->where('fizetesi_mod', 'kartya')
+            ->whereNull('jatt')
+            ->update(['jatt' => $jatt]);
+
+        if ($modositott === 0) {
+            throw new UzletiSzabalyException('Jatt csak kiszallitott, kartyaval fizetett rendeleshez adhato, egyszer.');
+        }
+
+        return $rendeles->fresh();
+    }
+
+    /** The kitchen starts preparing an order a courier has accepted: elfogadva -> készül. */
+    public function keszul(Rendeles $rendeles): Rendeles
+    {
+        $modositott = Rendeles::query()
+            ->whereKey($rendeles->id)
+            ->where('statusz', Rendeles::STATUSZ_ELFOGADVA)
+            ->update(['statusz' => Rendeles::STATUSZ_KESZUL]);
+
+        if ($modositott === 0) {
+            throw new UzletiSzabalyException('Csak elfogadott rendeles keszitheto.');
         }
 
         return $rendeles->fresh();

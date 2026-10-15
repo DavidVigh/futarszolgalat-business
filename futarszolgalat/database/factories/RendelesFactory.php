@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Futar;
 use App\Models\Rendeles;
 use App\Models\Termek;
 use App\Models\User;
@@ -41,9 +42,17 @@ class RendelesFactory extends Factory
         });
     }
 
+    /** Orders a courier handles need one (DB: ck_rendeles_futar_kotelezo). */
     public function statusz(string $statusz): static
     {
-        return $this->state(fn (array $attributes) => ['statusz' => $statusz]);
+        $futarNelkul = in_array($statusz, [Rendeles::STATUSZ_KOSAR, Rendeles::STATUSZ_UJ, Rendeles::STATUSZ_LEMONDVA], true);
+
+        return $this->state(fn (array $attributes) => [
+            'statusz' => $statusz,
+            'futar_id' => $futarNelkul ? null : Futar::factory()->allapot(
+                $statusz === Rendeles::STATUSZ_KISZALLITVA ? Futar::ALLAPOT_ELERHETO : Futar::ALLAPOT_UTON,
+            ),
+        ]);
     }
 
     public function keszpenzes(): static

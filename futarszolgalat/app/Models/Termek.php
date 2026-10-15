@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Termek extends Model
@@ -16,15 +17,11 @@ class Termek extends Model
 
     public const TIPUSOK = ['etel', 'ital'];
 
-    public const FOGASOK = ['leves', 'eloetel', 'foetel', 'koret', 'salata', 'teszta', 'pizza', 'burger', 'edesseg', 'hideg_ital', 'meleg_ital'];
-
-    public const ITAL_FOGASOK = ['hideg_ital', 'meleg_ital'];
-
     protected $table = 'termek';
 
     public $timestamps = false;
 
-    protected $fillable = ['tipus', 'nev', 'fogas', 'leiras', 'ar', 'elkeszitesi_ido', 'prioritas', 'aktiv'];
+    protected $fillable = ['tipus', 'nev', 'fogas', 'leiras', 'ar', 'elkeszitesi_ido', 'prioritas', 'aktiv', 'allergen_ellenorizve'];
 
     protected function casts(): array
     {
@@ -33,6 +30,7 @@ class Termek extends Model
             'elkeszitesi_ido' => 'integer',
             'prioritas' => 'integer',
             'aktiv' => 'boolean',
+            'allergen_ellenorizve' => 'boolean',
         ];
     }
 
@@ -41,6 +39,12 @@ class Termek extends Model
     protected function aktivak(Builder $query): void
     {
         $query->where('aktiv', true);
+    }
+
+    /** The course must exist in the fogas table with the same tipus (fk_termek_fogas). */
+    public function fogasa(): BelongsTo
+    {
+        return $this->belongsTo(Fogas::class, 'fogas', 'kod');
     }
 
     public function allergenek(): BelongsToMany

@@ -15,10 +15,11 @@ class UpdateTermekRequest extends FormRequest
         return [
             'tipus' => ['sometimes', 'required', Rule::in(Termek::TIPUSOK)],
             'nev' => ['sometimes', 'required', 'string', 'max:255'],
+            // The (fogas, tipus) pair must exist in the fogas table (fk_termek_fogas)
             'fogas' => [
                 Rule::requiredIf($this->has('tipus')),
-                $tipus === 'ital' ? Rule::in(Termek::ITAL_FOGASOK) : Rule::notIn(Termek::ITAL_FOGASOK),
-                Rule::in(Termek::FOGASOK),
+                'string',
+                Rule::exists('fogas', 'kod')->where('tipus', $tipus),
             ],
             'leiras' => ['sometimes', 'nullable', 'string'],
             'ar' => ['sometimes', 'required', 'integer', 'min:0'],
@@ -31,6 +32,7 @@ class UpdateTermekRequest extends FormRequest
             ],
             'prioritas' => ['sometimes', 'integer', 'min:0'],
             'aktiv' => ['sometimes', 'boolean'],
+            'allergen_ellenorizve' => ['sometimes', 'boolean'],
             'allergenek' => ['sometimes', 'array'],
             'allergenek.*' => ['integer', 'distinct', 'exists:allergen,kod'],
         ];

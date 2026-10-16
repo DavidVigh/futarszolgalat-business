@@ -12,6 +12,28 @@ class RendelesTetelTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_customer_can_list_the_items_of_their_order(): void
+    {
+        $vasarlo = User::factory()->create();
+        $rendeles = Rendeles::factory()->create(['felhasznalo_id' => $vasarlo->id]);
+        $termekId = $rendeles->tetelek()->value('termek_id');
+
+        $this->actingAs($vasarlo)->getJson("/api/rendelesek/{$rendeles->id}/tetelek")
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.termek_id', $termekId)
+            ->assertJsonPath('0.termek.id', $termekId);
+    }
+
+    public function test_other_customer_cannot_list_order_items(): void
+    {
+        $rendeles = Rendeles::factory()->create();
+
+        $this->actingAs(User::factory()->create())
+            ->getJson("/api/rendelesek/{$rendeles->id}/tetelek")
+            ->assertForbidden();
+    }
+
     public function test_adding_an_existing_product_increases_its_quantity(): void
     {
         $vasarlo = User::factory()->create();

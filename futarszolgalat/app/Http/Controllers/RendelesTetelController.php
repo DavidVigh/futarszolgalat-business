@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Gate;
 /** Items of the customer's own order; only changeable while the order is new (BL 5, 6). */
 class RendelesTetelController extends Controller
 {
+    public function index(Rendeles $rendeles): JsonResponse
+    {
+        Gate::authorize('view', $rendeles);
+
+        return response()->json($rendeles->tetelek()->with('termek')->get());
+    }
+
     public function store(StoreRendelesTetelRequest $request, Rendeles $rendeles, RendelesService $rendelesek): JsonResponse
     {
         Gate::authorize('update', $rendeles);

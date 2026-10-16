@@ -72,6 +72,7 @@ Route::middleware('web')->group(function (): void {
         Route::post('/rendelesek/{rendeles}/ertekeles', [RendelesController::class, 'ertekel']);
         Route::post('/rendelesek/{rendeles}/jatt', [RendelesController::class, 'jatt']);
 
+        Route::get('/rendelesek/{rendeles}/tetelek', [RendelesTetelController::class, 'index']);
         Route::post('/rendelesek/{rendeles}/tetelek', [RendelesTetelController::class, 'store']);
         Route::patch('/rendelesek/{rendeles}/tetelek/{termek}', [RendelesTetelController::class, 'update']);
         Route::delete('/rendelesek/{rendeles}/tetelek/{termek}', [RendelesTetelController::class, 'destroy']);
